@@ -2,40 +2,43 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PushSelfBase : MonoBehaviour
+namespace GuiFramework
 {
-    [SerializeField] private float lifeTime = 3f;
-    private float timer;
-    private bool isPushed;
-
-    private void InitPushTimer()
+    public class PushSelfBase : MonoBehaviour
     {
-        timer = 0f;
-        isPushed = false;
-    }
+        [SerializeField] private float lifeTime = 3f;
+        private float timer;
+        private bool isPushed;
 
-    void Update()
-    {
-        if (isPushed) return; // 如果已经被推送，则直接返回
-
-        timer += Time.deltaTime;
-
-        if (timer > lifeTime)
+        private void InitPushTimer()
         {
-            isPushed = true;
-            PushObj();
+            timer = 0f;
+            isPushed = false;
         }
-    }
 
-    private void PushObj()
-    {
-        if (ObjectPool.Instance != null)
+        void Update()
         {
-            ObjectPool.Instance.PushObject(gameObject);
+            if (isPushed) return; // 如果已经被推送，则直接返回
+
+            timer += Time.deltaTime;
+
+            if (timer > lifeTime)
+            {
+                isPushed = true;
+                PushObj();
+            }
         }
-        else
+
+        private void PushObj()
         {
-            Debug.LogError("ObjectPool 实例为 null，无法推送对象。");
+            if (ObjectPool.Instance != null)
+            {
+                ObjectPool.Instance.PushObject(gameObject);
+            }
+            else
+            {
+                Debug.LogError("ObjectPool 实例为 null，无法推送对象。");
+            }
         }
     }
 }

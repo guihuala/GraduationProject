@@ -5,7 +5,7 @@
 using EPOOutline;
 using DG.Tweening.Plugins.Options;
 using DG.Tweening;
-using DG.Tweening.Core;
+using DG.Tweening.UICore;
 
 namespace DG.Tweening
 {

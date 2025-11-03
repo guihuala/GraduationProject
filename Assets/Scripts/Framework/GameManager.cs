@@ -1,83 +1,87 @@
+using GuiFramework.Utils;
 using UnityEngine;
 
-public class GameManager : Singleton<GameManager>
+namespace GuiFramework
 {
-    public enum GameState
+    public class GameManager : Singleton<GameManager>
     {
-        Playing, // 游戏进行中
-        Paused, // 游戏暂停
-        GameOver // 游戏结束
-    }
-
-    private GameState currentState;
-
-    // 游戏开始时初始化状态
-    void Start()
-    {
-    }
-
-    public void SetGameState(GameState newState)
-    {
-        currentState = newState;
-
-        switch (newState)
+        public enum GameState
         {
-            case GameState.Playing:
-                Time.timeScale = 1;
-                UIManager.Instance.ClosePanel("PausePanel");
-                UIManager.Instance.ClosePanel("GameOverPanel");
-                break;
-
-            case GameState.Paused:
-                Time.timeScale = 0;
-                UIManager.Instance.OpenPanel("PausePanel");
-                break;
-
-            case GameState.GameOver:
-                Time.timeScale = 0;
-                UIManager.Instance.OpenPanel("GameOverPanel");
-                break;
+            Playing, // 游戏进行中
+            Paused, // 游戏暂停
+            GameOver // 游戏结束
         }
-    }
 
-    #region 状态控制
+        private GameState currentState;
 
-    // 游戏开始
-    public void StartGame()
-    {
-        SetGameState(GameState.Playing);
-    }
-
-    // 暂停游戏
-    public void PauseGame()
-    {
-        if (currentState == GameState.Playing)
+        // 游戏开始时初始化状态
+        void Start()
         {
-            SetGameState(GameState.Paused);
         }
-    }
 
-    // 恢复游戏
-    public void ResumeGame()
-    {
-        if (currentState == GameState.Paused)
+        public void SetGameState(GameState newState)
+        {
+            currentState = newState;
+
+            switch (newState)
+            {
+                case GameState.Playing:
+                    Time.timeScale = 1;
+                    UIManager.Instance.ClosePanel("PausePanel");
+                    UIManager.Instance.ClosePanel("GameOverPanel");
+                    break;
+
+                case GameState.Paused:
+                    Time.timeScale = 0;
+                    UIManager.Instance.OpenPanel("PausePanel");
+                    break;
+
+                case GameState.GameOver:
+                    Time.timeScale = 0;
+                    UIManager.Instance.OpenPanel("GameOverPanel");
+                    break;
+            }
+        }
+
+        #region 状态控制
+
+        // 游戏开始
+        public void StartGame()
         {
             SetGameState(GameState.Playing);
         }
-    }
 
-    // 游戏结束
-    public void EndGame()
-    {
-        SetGameState(GameState.GameOver);
-    }
+        // 暂停游戏
+        public void PauseGame()
+        {
+            if (currentState == GameState.Playing)
+            {
+                SetGameState(GameState.Paused);
+            }
+        }
 
-    // 返回主菜单
-    public void ReturnToMainMenu()
-    {
-        SetGameState(GameState.Playing);
-        SceneLoader.Instance.LoadScene(GameScene.MainMenu);
-    }
+        // 恢复游戏
+        public void ResumeGame()
+        {
+            if (currentState == GameState.Paused)
+            {
+                SetGameState(GameState.Playing);
+            }
+        }
 
-    #endregion
+        // 游戏结束
+        public void EndGame()
+        {
+            SetGameState(GameState.GameOver);
+        }
+
+        // 返回主菜单
+        public void ReturnToMainMenu()
+        {
+            SetGameState(GameState.Playing);
+            SceneLoader.Instance.LoadScene(GameScene.MainMenu);
+        }
+
+        #endregion
+    }
 }

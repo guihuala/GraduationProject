@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+using GuiFramework.Utils;
 
 public class TipsController : Singleton<TipsController>
 {

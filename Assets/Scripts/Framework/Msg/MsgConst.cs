@@ -1,5 +1,6 @@
-public class MsgConst
+namespace GuiFramework
 {
-    
-    
+    public class MsgConst
+    {
+    }
 }

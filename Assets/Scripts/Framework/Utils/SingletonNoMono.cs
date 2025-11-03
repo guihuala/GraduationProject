@@ -1,18 +1,21 @@
-/// <summary>
-/// 普通类型的单例类(不继承mono)
-/// </summary>
-/// <typeparam name="T"></typeparam>
-public class SingletonNoMono<T> where T : class, new()
+namespace GuiFramework.Utils
 {
-    protected static T instance = new T();
-
-    public static T Instance
+    /// <summary>
+    /// 普通类型的单例类(不继承mono)
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class SingletonNoMono<T> where T : class, new()
     {
-        get
+        protected static T instance = new T();
+
+        public static T Instance
         {
-            if (instance == null)
-                instance = new T();
-            return instance;
+            get
+            {
+                if (instance == null)
+                    instance = new T();
+                return instance;
+            }
         }
     }
 }

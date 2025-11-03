@@ -1,0 +1,16 @@
+{
+    "name": "GuiFramework",
+    "rootNamespace": "",
+    "references": [
+        "GUID:0ce561780b4004fb3b1094a11fca12ac"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

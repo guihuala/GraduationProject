@@ -1,26 +1,25 @@
 using UnityEngine;
 
-/// <summary>
-/// 持久化的泛型单例基类
-/// </summary>
-/// <typeparam name="T"></typeparam>
-public class SingletonPersistent<T> : MonoBehaviour where T : MonoBehaviour
+namespace GuiFramework.Utils
 {
-    private static T instance;
-
-    public static T Instance => instance;
-
-    protected virtual void Awake()
+    public class SingletonPersistent<T> : MonoBehaviour where T : MonoBehaviour
     {
+        private static T instance;
 
-        if (instance)
+        public static T Instance => instance;
+
+        protected virtual void Awake()
         {
-            Destroy(gameObject);
+
+            if (instance)
+            {
+                Destroy(gameObject);
+            }
+            else
+            {
+                instance = this as T;
+            }
+            DontDestroyOnLoad(gameObject);
         }
-        else
-        {
-            instance = this as T;
-        }
-        DontDestroyOnLoad(gameObject);
     }
 }

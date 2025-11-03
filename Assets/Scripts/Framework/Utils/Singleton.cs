@@ -1,17 +1,20 @@
 using UnityEngine;
 
-/// <summary>
-/// 普通泛型单例基类
-/// </summary>
-/// <typeparam name="T"></typeparam>
-public class Singleton<T> : MonoBehaviour where T : MonoBehaviour
+namespace GuiFramework.Utils
 {
-    private static T instance;
-    public static T Instance { get { return instance; } set { instance = value; } }
-
-    protected virtual void Awake()
+    public class Singleton<T> : MonoBehaviour where T : MonoBehaviour
     {
-        instance = this as T;
-    }
+        private static T instance;
 
+        public static T Instance
+        {
+            get { return instance; }
+            set { instance = value; }
+        }
+
+        protected virtual void Awake()
+        {
+            instance = this as T;
+        }
+    }
 }
