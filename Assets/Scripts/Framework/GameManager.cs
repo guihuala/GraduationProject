@@ -17,6 +17,7 @@ namespace GuiFramework
         // 游戏开始时初始化状态
         void Start()
         {
+            SCRefDataMgr.Instance.Init();
         }
 
         public void SetGameState(GameState newState)

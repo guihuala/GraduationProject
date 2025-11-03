@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace GuiFramework
@@ -26,103 +27,65 @@ namespace GuiFramework
             _m_sheetName = _sheetName;
         }
 
-        /** 获取加载资源对象的路径 */
-        protected string _assetPath { get { return _m_assetPath; } }
-        protected string _sheetName { get { return _m_sheetName; } }
+        protected string _assetPath
+        {
+            get { return _m_assetPath; }
+        }
 
-        private Dictionary<string, string> _m_keyValueMap = new Dictionary<string, string>();
+        protected string _sheetName
+        {
+            get { return _m_sheetName; }
+        }
+
+        public Dictionary<string, string> _m_keyValueMap = new Dictionary<string, string>();
 
         private const string EXCEL_EMPTY_FLAG = "*";
 
-        public void readFromTxt()
+        public void readFromJson()
         {
             if (string.IsNullOrEmpty(_m_assetPath) || string.IsNullOrEmpty(_m_sheetName))
             {
                 Debug.LogError(_m_assetPath + "或" + _m_sheetName + "没有信息，导出失败！");
                 return;
             }
-            using (StreamReader sr = new StreamReader("Assets/Resources/RefData/ExportTxt/" + _m_sheetName + ".txt"))
+
+            string jsonPath = "Assets/Resources/RefData/ExportJson/" + _m_sheetName + ".json";
+            if (!File.Exists(jsonPath))
             {
-                string str = sr.ReadToEnd();
-                parseFromTxt(str);
+                Debug.LogError("JSON 文件不存在：" + jsonPath);
+                return;
             }
+
+            string jsonData = File.ReadAllText(jsonPath);
+            parseFromJson(jsonData);
         }
-        protected void parseFromTxt(string _string)
+
+        protected void parseFromJson(string jsonString)
         {
-            if (string.IsNullOrEmpty(_string))
+            if (string.IsNullOrEmpty(jsonString))
             {
-                Debug.LogError("txt为空");
+                Debug.LogError("JSON 数据为空");
                 return;
             }
 
             _m_keyValueMap.Clear();
-            string[] lineArray = _string.Split('\n');
-            for (int i = 1; i < lineArray.Length; i++)
+
+            // 解析 JSON 数据
+            var data = JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(jsonString);
+            foreach (var row in data)
             {
-                string line = lineArray[i];
-                if (string.IsNullOrEmpty(line) || line == "\t")
+                foreach (var pair in row)
                 {
-                    continue;
-                }
-                string[] lineSplit = line.Split('\t');
-                if (lineSplit.Length < 2)
-                {
-                    Debug.LogError($"general表格式错误：表格{_m_sheetName}，第{i}行：\n{line}");
-                    continue;
-                }
-                try
-                {
-                    _m_keyValueMap.Add(lineSplit[0].Trim(), lineSplit[1].Trim());
-                }
-                catch(Exception ex)
-                {
-                    Debug.LogError($"general表格式的" + _m_sheetName + "表添加到字典出现问题，key：" + lineSplit[0] + ",value:" +lineSplit[1]+
-                        "----"+ex) ;
+                    _m_keyValueMap.Add(pair.Key, pair.Value);
                 }
             }
 
-            try
-            {
-                _parseFromString();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"SCRefDataCore:{e}");
-                return;
-            }
-        }
-        public void singleParseFormTxt(string _keys,string _values)
-        {
-            if (string.IsNullOrEmpty(_keys) || string.IsNullOrEmpty(_values))
-                return;
-
-            string[] keySplitArr = _keys.Split("\t");
-            string[] valSplitArr = _values.Split("\t");
-
-            if(keySplitArr.Length != valSplitArr.Length)
-            {
-                Debug.LogError(_sheetName + "要配置的变量数目和实际配置的变量数目不匹配！！！");
-                return;
-            }
-            _m_keyValueMap.Clear();
-            for (int i =0;i<keySplitArr.Length;i++)
-            {
-                _m_keyValueMap.Add(keySplitArr[i], valSplitArr[i]);
-            }
             _parseFromString();
-            //try
-            //{
-            //    _parseFromString();
-            //}
-            //catch (Exception e)
-            //{
-            //    Debug.LogError($"SCRefDataCore:{e}");
-            //    return;
-            //}
         }
+
         protected abstract void _parseFromString();
 
-        #region getXXX
+        #region Get Methods
 
         protected string getString(string _key)
         {
@@ -132,6 +95,7 @@ namespace GuiFramework
                 Debug.LogError($"_key不存在{_key}");
                 return null;
             }
+
             return result;
         }
 
@@ -143,14 +107,16 @@ namespace GuiFramework
                 Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return 0;
             }
+
             if (!int.TryParse(tempValue, out int result))
             {
                 Debug.LogError($"表\"{_m_assetPath},{_m_sheetName}\"\t数据填写错误: {_name},填的{tempValue}不是int");
             }
+
             return result;
         }
 
-        protected object getEnum(string _name,Type _type)
+        protected object getEnum(string _name, Type _type)
         {
             string tempValue = getString(_name);
             if (string.IsNullOrEmpty(tempValue))
@@ -164,12 +130,12 @@ namespace GuiFramework
             {
                 Debug.LogError($"表\"{_m_assetPath},{_m_sheetName}\"\t数据填写错误: {_name},填的{tempValue}不是enum");
             }
+
             return obj;
         }
 
         protected long getLong(string _name, bool _canNull = true)
         {
-
             string tempValue = getString(_name);
             if (string.IsNullOrEmpty(tempValue))
             {
@@ -177,16 +143,17 @@ namespace GuiFramework
                     Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return 0;
             }
+
             if (!long.TryParse(tempValue, out long result))
             {
                 Debug.LogError($"表\"{_m_assetPath},{_m_sheetName}\"\t数据填写错误: {_name},填的{tempValue}不是long");
             }
+
             return result;
         }
 
         protected bool getBool(string _name, bool _canNull = true)
         {
-
             string tempValue = getString(_name);
             if (string.IsNullOrEmpty(tempValue))
             {
@@ -194,16 +161,17 @@ namespace GuiFramework
                     Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return false;
             }
+
             if (!bool.TryParse(tempValue, out bool result))
             {
                 Debug.LogError($"表\"{_m_assetPath},{_m_sheetName}\"\t数据填写错误: {_name},填的{tempValue}不是bool");
             }
+
             return result;
         }
 
         protected float getFloat(string _name, bool _canNull = true)
         {
-
             string tempValue = getString(_name);
             if (string.IsNullOrEmpty(tempValue))
             {
@@ -211,10 +179,12 @@ namespace GuiFramework
                     Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return 0;
             }
+
             if (!float.TryParse(tempValue, NumberStyles.Float, CultureInfo.InvariantCulture, out float result))
             {
                 Debug.LogError($"表\"{_m_assetPath},{_m_sheetName}\"\t数据填写错误: {_name},填的{tempValue}不是float");
             }
+
             return result;
         }
 
@@ -235,6 +205,7 @@ namespace GuiFramework
                 Debug.LogError($"表\"{_m_assetPath},{_m_sheetName}\"\t数据填写错误: {_name},填的{tempValue}不是Vector2");
                 return v2;
             }
+
             v2.Set(float.Parse(strs[0]), float.Parse(strs[1]));
             return v2;
         }
@@ -294,6 +265,7 @@ namespace GuiFramework
                     Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return list;
             }
+
             //空列表标识
             if (tempValue == EXCEL_EMPTY_FLAG)
                 return list;
@@ -328,6 +300,7 @@ namespace GuiFramework
                     Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return vector2List;
             }
+
             string[] strs = tempValue.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
             for (var i = 0; i < strs.Length; i++)
             {
@@ -343,6 +316,7 @@ namespace GuiFramework
                     vector2List.Add(new Vector2(x, y));
                 }
             }
+
             return vector2List;
         }
 
@@ -357,6 +331,7 @@ namespace GuiFramework
                     Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return Vector2IntList;
             }
+
             string[] strs = tempValue.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
             for (var i = 0; i < strs.Length; i++)
             {
@@ -372,6 +347,7 @@ namespace GuiFramework
                     Vector2IntList.Add(new Vector2Int(x, y));
                 }
             }
+
             return Vector2IntList;
         }
 
@@ -386,6 +362,7 @@ namespace GuiFramework
                     Debug.LogError($"{_m_assetPath},{_m_sheetName}的字段{_name}为空");
                 return vector3List;
             }
+
             string[] strs = tempValue.Split(new string[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
             for (var i = 0; i < strs.Length; i++)
             {
@@ -402,6 +379,7 @@ namespace GuiFramework
                     vector3List.Add(new Vector3(x, y, z));
                 }
             }
+
             return vector3List;
         }
 
@@ -416,6 +394,7 @@ namespace GuiFramework
                     {
                         return "";
                     }
+
                     return Activator.CreateInstance(_type, true);
                 }
                 else
@@ -467,10 +446,10 @@ namespace GuiFramework
             {
                 Debug.LogError($"ParseValue type:{_type.ToString()}, value:{_value}, failed: {ex}");
             }
+
             return null;
         }
 
         #endregion
-
     }
 }

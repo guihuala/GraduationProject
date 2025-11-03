@@ -4,23 +4,25 @@ using NPOI.XSSF.UserModel;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace GuiFramework
 {
     /// <summary>
-    /// SCFrame中的配表数据导出器
+    /// SCFrame中的配表数据导出器，修改为导出为JSON格式
     /// </summary>
     public static class SCExcelExporter
     {
         public const string GAME_EXCEL_PATH = "Assets/Resources/RefData/Excels";
-        public const string GAME_TXT_PATH = "Assets/Resources/RefData/ExportTxt";
+        public const string GAME_JSON_PATH = "Assets/Resources/RefData/ExportJson";  // 修改路径为JSON
         public const int TITLE_START_INDEX = 0;
 
         /// <summary>
-        /// 导出所有的excel表 表在GAME_EXCEL_PATH里
+        /// 导出所有的excel表 表在GAME_EXCEL_PATH里，修改为导出为JSON
         /// </summary>
-        [MenuItem("Excel导出/导出全部的Excel")]
-        public static void ExportAllExcels()
+        [MenuItem("Excel导出/导出全部的Excel为JSON")]
+        public static void ExportAllExcelsAsJson()
         {
             bool hasImported = false;
             DirectoryInfo direction = new DirectoryInfo(GAME_EXCEL_PATH);
@@ -28,7 +30,7 @@ namespace GuiFramework
 
             for (int i = 0; i < files.Length; i++)
             {
-                //查找excel的后缀
+                // 查找excel的后缀
                 if (Path.GetExtension(files[i].FullName) == ".xls" || Path.GetExtension(files[i].FullName) == ".xlsx")
                 {
                     string excelName = Path.GetFileName(files[i].FullName);
@@ -38,7 +40,7 @@ namespace GuiFramework
                         continue;
                     }
 
-                    ExportExcel(excelName);
+                    ExportExcelAsJson(excelName);
 
                     hasImported = true;
                 }
@@ -55,60 +57,74 @@ namespace GuiFramework
         }
 
         /// <summary>
-        /// 导出Excel表 
+        /// 导出单个Excel表为JSON
         /// </summary>
         /// <param name="_excelName"></param>
-        public static void ExportExcel(string _excelName)
+        public static void ExportExcelAsJson(string _excelName)
         {
             string excelPath = GAME_EXCEL_PATH + "/" + _excelName;
 
-            IWorkbook workbook = CreatWrokbook(excelPath);
+            IWorkbook workbook = CreateWorkbook(excelPath);
             ISheet sheet = null;
             IRow row = null;
             ICell cell = null;
-            string cellValue = "";
+
+            var sheetData = new List<Dictionary<string, string>>(); // 存储每个sheet的JSON数据
+
             for (int i = 0; i < workbook.NumberOfSheets; i++)
             {
-                using (FileStream fs = File.Open(GAME_TXT_PATH + "/" + workbook.GetSheetName(i) + ".txt",
-                           FileMode.Create, FileAccess.Write))
-                {
-                    using (StreamWriter sw = new StreamWriter(fs, System.Text.Encoding.UTF8))
-                    {
-                        sheet = workbook.GetSheetAt(i);
-                        if (sheet == null)
-                            continue;
-                        for (int j = TITLE_START_INDEX; j <= sheet.LastRowNum; j++)
-                        {
-                            row = sheet.GetRow(j);
-                            if (row == null)
-                                continue;
-                            for (int k = 0; k <= row.LastCellNum; k++)
-                            {
-                                cell = row.GetCell(k);
-                                if (cell == null)
-                                    continue;
-                                cellValue = cell?.ToString() ?? "";
-                                sw.Write(cellValue);
-                                if (k < row.LastCellNum - 1)
-                                    sw.Write("\t");
-                            }
+                sheet = workbook.GetSheetAt(i);
+                if (sheet == null)
+                    continue;
 
-                            sw.Write("\n");
+                var columnNames = new List<string>();
+
+                // 获取标题行
+                row = sheet.GetRow(TITLE_START_INDEX);
+                for (int k = 0; k < row.LastCellNum; k++)
+                {
+                    cell = row.GetCell(k);
+                    columnNames.Add(cell?.ToString() ?? "");
+                }
+
+                // 获取数据行
+                for (int j = TITLE_START_INDEX + 1; j <= sheet.LastRowNum; j++)
+                {
+                    row = sheet.GetRow(j);
+                    if (row == null)
+                        continue;
+
+                    var rowData = new Dictionary<string, string>();
+                    for (int k = 0; k < row.LastCellNum; k++)
+                    {
+                        cell = row.GetCell(k);
+                        if (cell != null)
+                        {
+                            rowData[columnNames[k]] = cell.ToString();
                         }
                     }
+
+                    if (rowData.Count > 0)
+                    {
+                        sheetData.Add(rowData);
+                    }
                 }
+
+                // 保存为JSON
+                string json = JsonConvert.SerializeObject(sheetData, Formatting.Indented);
+                string jsonFilePath = GAME_JSON_PATH + "/" + workbook.GetSheetName(i) + ".json";
+                File.WriteAllText(jsonFilePath, json);
+
+                Debug.Log($"导出{_excelName}的 {workbook.GetSheetName(i)} sheet 为 JSON 成功！");
             }
-
-            Debug.Log("导出" + _excelName + "成功！！！");
         }
-
 
         /// <summary>
         /// 创建工作簿
         /// </summary>
         /// <param name="_excelPath"></param>
         /// <returns></returns>
-        private static IWorkbook CreatWrokbook(string _excelPath)
+        private static IWorkbook CreateWorkbook(string _excelPath)
         {
             using (FileStream stream = File.Open(_excelPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
