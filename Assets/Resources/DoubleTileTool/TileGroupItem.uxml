@@ -1,0 +1,24 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:VisualElement name="TileGroupItem" style="flex-grow: 1; flex-direction: row; align-items: flex-start; margin-left: 0; margin-right: 10px; margin-bottom: 10px; border-bottom-width: 1px; border-left-color: rgb(101, 101, 101); border-right-color: rgb(101, 101, 101); border-top-color: rgb(101, 101, 101); border-bottom-color: rgb(101, 101, 101);">
+        <ui:VisualElement style="flex-grow: 1; flex-direction: row; margin-bottom: 10px;">
+            <ui:VisualElement style="flex-grow: 1; flex-direction: row; margin-top: 0; margin-right: 100px; margin-bottom: 0; margin-left: 0; width: 50px;">
+                <uie:ObjectField label="瓦片1" name="Tile1" style="flex-direction: column; margin-right: 4px; align-items: flex-start; width: 100px; height: 100px; -unity-text-align: middle-left;" />
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1; flex-direction: row; margin-top: 0; margin-right: 100px; margin-bottom: 0; margin-left: 0; width: 50px;">
+                <uie:ObjectField label="瓦片2" name="Tile2" style="flex-direction: column; margin-right: 4px; align-items: flex-start; width: 100px; height: 100px; -unity-text-align: middle-left;" />
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1; flex-direction: row; margin-top: 0; margin-right: 100px; margin-bottom: 0; margin-left: 0; width: 50px;">
+                <uie:ObjectField label="瓦片3" name="Tile3" style="flex-direction: column; margin-right: 4px; align-items: flex-start; width: 100px; height: 100px; -unity-text-align: middle-left;" />
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1; flex-direction: row; margin-top: 0; margin-right: 100px; margin-bottom: 0; margin-left: 0; width: 50px;">
+                <uie:ObjectField label="瓦片4" name="Tile4" style="flex-direction: column; margin-right: 4px; align-items: flex-start; width: 100px; height: 100px; -unity-text-align: middle-left;" />
+            </ui:VisualElement>
+            <ui:VisualElement style="flex-grow: 1; flex-direction: row; margin-top: 0; margin-right: 100px; margin-bottom: 0; margin-left: 0; width: 50px;">
+                <uie:ObjectField label="瓦片5" name="Tile5" style="flex-direction: column; margin-right: 4px; align-items: flex-start; width: 100px; height: 100px; -unity-text-align: middle-left;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement style="flex-grow: 1; justify-content: center; align-self: center; flex-direction: column-reverse; margin-left: 0; align-items: auto;">
+            <ui:Button text="-" parse-escape-sequences="true" display-tooltip-when-elided="true" style="width: 20px; height: 20px; justify-content: flex-start;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

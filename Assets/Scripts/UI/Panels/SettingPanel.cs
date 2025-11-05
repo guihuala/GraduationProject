@@ -16,22 +16,21 @@ public class SettingsPanel : BasePanel
     public Dropdown languageDropdown;
 
     [Header("导航/页签")]
-    public Button tabBasicButton;     // “基础设置”页签按钮
-    public Button tabBindingsButton;  // “键位设置”页签按钮
-    public GameObject basicPage;      // 页：基础设置（包含音量/语言）
-    public GameObject bindingsPage;   // 页：键位设置
+    public Button tabBasicButton;
+    public Button tabBindingsButton;
+    public GameObject basicPage;
+    public GameObject bindingsPage;
 
     [Header("键位设置")]
-    public Transform keybindingContainer;     // 键位条目父节点（建议挂 VerticalLayoutGroup）
-    public GameObject keybindingItemPrefab;   // 键位条目预制体（含 KeybindingItem）
+    public Transform keybindingContainer;
+    public GameObject keybindingItemPrefab;
 
     public Button backButton;
 
-    private PlayerInputActions inputActions;   // 你的 .inputactions 生成类实例
+    private PlayerInputActions inputActions;
 
     private void Start()
     {
-        // === 1) 音量初始值 + 监听（你原有逻辑，保留） ===
         bgmVolumeSlider.value = AudioManager.Instance.bgmVolumeFactor;
         sfxVolumeSlider.value = AudioManager.Instance.sfxVolumeFactor;
 
@@ -39,8 +38,7 @@ public class SettingsPanel : BasePanel
         sfxVolumeSlider.onValueChanged.AddListener(ChangeSfxVolume);
 
         backButton.onClick.AddListener(SaveSettings);
-
-        // === 2) 语言下拉初始化（你原有逻辑，保留） ===
+        
         InitLanguageDropdown();
 
         // === 3) 页签绑定 ===
@@ -63,8 +61,7 @@ public class SettingsPanel : BasePanel
     {
         if (basicPage)   basicPage.SetActive(showBasic);
         if (bindingsPage) bindingsPage.SetActive(!showBasic);
-
-        // （可选）更新选中态样式：例如按钮高亮/禁用
+        
         if (tabBasicButton)    tabBasicButton.interactable = !showBasic;
         if (tabBindingsButton) tabBindingsButton.interactable = showBasic;
     }
@@ -129,8 +126,7 @@ public class SettingsPanel : BasePanel
         // 若有自定义的非 LocalizeStringEvent 文本/资源，需要在这里手动刷新
         // RefreshCustomLocalizedContent();
     }
-
-    // ========== 音量相关（保留原逻辑） ==========
+    
     private void ChangeMainVolume(float value)
     {
         AudioManager.Instance.ChangeMainVolume(value);

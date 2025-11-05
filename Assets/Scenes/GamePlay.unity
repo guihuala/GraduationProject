@@ -488,6 +488,7 @@ Transform:
   - {fileID: 1786579643}
   - {fileID: 96074173}
   - {fileID: 1524575980}
+  - {fileID: 1133281338}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &677476667
@@ -655,6 +656,57 @@ RectTransform:
   m_AnchoredPosition: {x: -150, y: -100}
   m_SizeDelta: {x: 300, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1133281337
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1133281338}
+  - component: {fileID: 1133281339}
+  m_Layer: 0
+  m_Name: UIHelper
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1133281338
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1133281337}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 677476665}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1133281339
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1133281337}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82692bbe8e3814ee4b2e9388e66bcd4f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  BubblePrefab: {fileID: 6944888077476667840, guid: f4dd18da1587ed140884b33597523930, type: 3}
+  TipPrefab: {fileID: 6944888077476667840, guid: 32d25b97efe1430468cce84325f222dc, type: 3}
+  ShowTipInterval: 0.15
+  QuickReplaceThreshold: 0.3
+  SignPrefab: {fileID: 6944888077476667840, guid: 5ec34d3113a459d4f8adbe4dd7854dd6, type: 3}
+  FixedPosTextPrefab: {fileID: 6944888077476667840, guid: b29276fe14cccf040bc3320d8668b911, type: 3}
+  CircleProgressPrefab: {fileID: 4911077471963055430, guid: c4565201eaffcf84d9cc33c69b5a7259, type: 3}
 --- !u!1 &1189129742
 GameObject:
   m_ObjectHideFlags: 0
