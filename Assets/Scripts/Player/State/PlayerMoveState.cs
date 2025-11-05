@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using KidGame.Core;
 using UnityEngine;
 
 public class PlayerMoveState : PlayerStateBase
