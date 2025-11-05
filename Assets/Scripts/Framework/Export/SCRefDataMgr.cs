@@ -12,11 +12,11 @@ namespace GuiFramework
         public void Init()
         {
             itemRefList.readFromJson();
-            Debug.Log("配表数据加载成功！");
             foreach (var item in itemRefList.refDataList)
             {
                 Debug.Log($"ID: {item.ID}, Name: {item.Name}, Price: {item.Price}, Type: {item.Type}");
             }
+            Debug.Log("配表数据加载成功！");
         }
     }
 }
