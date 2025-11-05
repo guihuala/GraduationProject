@@ -1,4 +1,3 @@
-using GuiFramework.Utils;
 using UnityEngine;
 
 namespace GuiFramework
