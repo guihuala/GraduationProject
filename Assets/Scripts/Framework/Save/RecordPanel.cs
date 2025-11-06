@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using System;
 
 public class RecordPanel : MonoBehaviour
 {
@@ -24,6 +25,12 @@ public class RecordPanel : MonoBehaviour
     public Text gameTime;               //游戏时间
     public Text sceneName;              //场景名称
     public Text level;                  //玩家等级
+    public Text playerName;             //玩家名称
+    public Text saveTime;               //存档时间
+    public Text gameVersion;            //游戏版本
+    public Text platform;               //平台信息
+    public Text fileSize;               //文件大小
+    public Text description;            //存档描述
 
     //Key为存档文件名 Value为存档序号
     Dictionary<string, int> RecordInGrid = new Dictionary<string, int>();
@@ -76,16 +83,39 @@ public class RecordPanel : MonoBehaviour
         TIME.SetCurTime();
     }
 
-
     //RecordUI.OnEnter回调
     void ShowDetails(int i)
     {
-        //读取存档数据并更新详情面板显示
+        //读取存档数据和元数据
         var data = Player.Instance.ReadForShow(i);
+        var metadata = Player.Instance.GetSaveMetadata(i);
+        
+        //基本游戏数据
         gameTime.text = $"游戏时间  {TIME.GetFormatTime((int)data.gameTime)}";
         sceneName.text = $"场景名称  {data.scensName}";
         level.text = $"玩家等级  {data.level}";
+        playerName.text = $"玩家名称  {data.playerName}";
         screenShot.sprite = SAVE.LoadShot(i);
+
+        //元数据显示
+        if (metadata != null)
+        {
+            DateTime saveDateTime = DateTimeOffset.FromUnixTimeSeconds(metadata.createTime).LocalDateTime;
+            saveTime.text = $"存档时间  {saveDateTime:yyyy/MM/dd HH:mm:ss}";
+            gameVersion.text = $"游戏版本  {metadata.gameVersion}";
+            platform.text = $"平台  {metadata.platform}";
+            fileSize.text = $"文件大小  {FormatFileSize(metadata.fileSize)}";
+            description.text = string.IsNullOrEmpty(metadata.description) ? "描述  无" : $"描述  {metadata.description}";
+        }
+        else
+        {
+            //隐藏元数据相关UI
+            saveTime.text = "";
+            gameVersion.text = "";
+            platform.text = "";
+            fileSize.text = "";
+            description.text = "";
+        }
 
         //显示详情
         detail.SetActive(true);
@@ -97,7 +127,6 @@ public class RecordPanel : MonoBehaviour
         //隐藏详情
         detail.SetActive(false);
     }
-
 
     //按钮OPEN回调
     void CloseOrOpen()
@@ -111,7 +140,6 @@ public class RecordPanel : MonoBehaviour
         load.interactable = (recordPanel.activeSelf) ? true : false;
     }
 
-
     //按钮save和load回调
     void SaveOrLoad(bool OnSave=true)
     {
@@ -122,7 +150,6 @@ public class RecordPanel : MonoBehaviour
         save.GetComponent<Image>().color = (isSave)?Color.white:oriColor;
         load.GetComponent<Image>().color = (isLoad)?Color.white:oriColor;
     }
-
 
     //左键点击
     void LeftClickGrid(int ID)
@@ -137,22 +164,37 @@ public class RecordPanel : MonoBehaviour
         {
             //空位什么也不做
             if (RecordData.Instance.recordName[ID] == "")           
-                return;           
-            else
+                return;
+            
+            //检查存档完整性
+            bool isValid = Player.Instance.ValidateSave(ID);
+            if (!isValid)
             {
-                //读取该存档并更新玩家数据
-                Player.Instance.Load(ID);    
-                //将当前存档ID记录到最新存档
-                RecordData.Instance.lastID = ID;
-                RecordData.Instance.Save();
-
-                //切换场景
-                if (SceneManager.GetActiveScene().name != Player.Instance.scensName)
-                {
-                    SceneManager.LoadScene(Player.Instance.scensName);
-                }
-                TIME.SetOriTime();
+                Debug.LogError($"存档 {ID} 已损坏，无法加载");
+                //可以在这里添加弹窗提示
+                return;
             }
+            
+            //检查版本兼容性
+            var metadata = Player.Instance.GetSaveMetadata(ID);
+            if (metadata != null && metadata.gameVersion != Application.version)
+            {
+                Debug.LogWarning($"版本不匹配: 存档版本({metadata.gameVersion}) != 当前版本({Application.version})");
+                //可以在这里添加确认对话框
+            }
+            
+            //读取该存档并更新玩家数据
+            Player.Instance.Load(ID);    
+            //将当前存档ID记录到最新存档
+            RecordData.Instance.lastID = ID;
+            RecordData.Instance.Save();
+
+            //切换场景
+            if (SceneManager.GetActiveScene().name != Player.Instance.scensName)
+            {
+                SceneManager.LoadScene(Player.Instance.scensName);
+            }
+            TIME.SetOriTime();
         }
     }
 
@@ -165,7 +207,6 @@ public class RecordPanel : MonoBehaviour
         //非空位则删除
         else       
             DeleteRecord(gridID, false);
-        
     }
 
     private void QuitGame()
@@ -175,11 +216,10 @@ public class RecordPanel : MonoBehaviour
         {
             int autoID;
             //尝试从字典中获取存档序号
-            //即使字典中没有该键值也会返回0
             RecordInGrid.TryGetValue(autoName, out autoID);
             Debug.Log($"找到自动存档序号为{autoID}");
             //删除原先的自动存档并新建一个自动存档
-            NewRecord(autoID, ".auto");
+            NewRecord(autoID, ".auto", "游戏退出时自动保存");
         }
         else
         {
@@ -189,11 +229,10 @@ public class RecordPanel : MonoBehaviour
                 //空位
                 if (RecordData.Instance.recordName[i] == "")
                 {
-                    NewRecord(i, ".auto");
+                    NewRecord(i, ".auto", "游戏退出时自动保存");
                     break;
                 }
             }
-
         }
 
         //退出游戏
@@ -204,8 +243,7 @@ public class RecordPanel : MonoBehaviour
         #endif
     }
 
-
-    void NewRecord(int i,string end=".save")
+    void NewRecord(int i, string end = ".save", string description = "")
     {
         //该位置有原存档
         if (RecordData.Instance.recordName[i] != "")
@@ -219,8 +257,11 @@ public class RecordPanel : MonoBehaviour
         //将当前存档标记为最新存档并保存存档列表
         RecordData.Instance.lastID = i;
         RecordData.Instance.Save();
-        //根据玩家数据生成该存档文件
-        Player.Instance.Save(i);
+        
+        //根据玩家数据生成该存档文件（支持元数据）
+        bool isAutoSave = end == ".auto";
+        Player.Instance.Save(i, isAutoSave, description);
+        
         //添加新存档键值
         RecordInGrid.Add(RecordData.Instance.recordName[i], i);
         //更新新存档UI
@@ -229,11 +270,12 @@ public class RecordPanel : MonoBehaviour
         SAVE.CameraCapture(i, Camera.main, new Rect(0, 0, Screen.width, Screen.height));
         //显示详情
         ShowDetails(i);
+        
+        Debug.Log($"新建{(isAutoSave ? "自动" : "手动")}存档: {i}, 描述: {description}");
     }
 
-
     //true为覆盖模式 false为删除模式
-    void DeleteRecord(int i,bool isCover = true)
+    void DeleteRecord(int i, bool isCover = true)
     {
         //删除存档文件
         Player.Instance.Delete(i);
@@ -250,6 +292,50 @@ public class RecordPanel : MonoBehaviour
             SAVE.DeleteShot(i);
             //隐藏详情
             HideDetails();
+            
+            Debug.Log($"删除存档: {i}");
+        }
+    }
+    
+    //格式化文件大小显示
+    private string FormatFileSize(int bytes)
+    {
+        if (bytes < 1024)
+            return $"{bytes} B";
+        else if (bytes < 1024 * 1024)
+            return $"{(bytes / 1024f):0.0} KB";
+        else
+            return $"{(bytes / (1024f * 1024f)):0.0} MB";
+    }
+    
+    public void SaveWithDescription(int id, string description)
+    {
+        NewRecord(id, ".save", description);
+    }
+    
+    public void CleanCorruptedSaves()
+    {
+        int corruptedCount = 0;
+        for (int i = 0; i < RecordData.recordNum; i++)
+        {
+            if (RecordData.Instance.recordName[i] != "")
+            {
+                bool isValid = Player.Instance.ValidateSave(i);
+                if (!isValid)
+                {
+                    DeleteRecord(i, false);
+                    corruptedCount++;
+                }
+            }
+        }
+        
+        if (corruptedCount > 0)
+        {
+            Debug.Log($"已清理 {corruptedCount} 个损坏存档");
+        }
+        else
+        {
+            Debug.Log("未发现损坏存档");
         }
     }
 }

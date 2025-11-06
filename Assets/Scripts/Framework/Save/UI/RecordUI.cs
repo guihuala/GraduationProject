@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System;
 
 public class RecordUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
@@ -11,6 +12,7 @@ public class RecordUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandle
     public GameObject auto; //自动存档标记
     public Image rect; //边框
     [ColorUsage(true)] public Color enterColor; //鼠标悬停时边框颜色
+    public Color corruptedColor = Color.red; //损坏存档颜色
 
     public static System.Action<int> OnLeftClick;
     public static System.Action<int> OnRightClick;
@@ -23,7 +25,6 @@ public class RecordUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandle
     {
         id = transform.GetSiblingIndex();
     }
-
 
     public void OnPointerClick(PointerEventData eventData)
     {
@@ -57,10 +58,6 @@ public class RecordUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandle
     {
         //恢复边框颜色
         rect.color = Color.white;
-
-        //隐藏详情面板
-        if (OnExit != null)
-            OnExit();
     }
 
     //设置存档序号显示
@@ -69,34 +66,58 @@ public class RecordUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandle
         indexText.text = i.ToString();
     }
 
-
     public void SetName(int i)
     {
-        //空档则显示空档并隐藏Auto标记
+        //空档则显示空档并隐藏其他元素
         if (RecordData.Instance.recordName[i] == "")
         {
             recordName.text = "空档";
             auto.SetActive(false);
+            recordName.color = Color.white;
         }
         else
         {
-            //从存档文件名中提取日期和时间
-            string full = RecordData.Instance.recordName[i];
-            //提取前8位日期
-            string date = full.Substring(0, 8);
-            //提取后6位时间
-            string time = full.Substring(9, 6);
-            //格式化日期
-            TIME.SetDate(ref date);
-            TIME.SetTime(ref time);
-            //显示存档名
-            recordName.text = date + " " + time;
+            // 获取存档元数据
+            var metadata = Player.Instance.GetSaveMetadata(i);
+            
+            if (metadata != null)
+            {
+                // 显示格式化日期时间
+                DateTime createTime = DateTimeOffset.FromUnixTimeSeconds(metadata.createTime).LocalDateTime;
+                recordName.text = $"{createTime:MM/dd HH:mm}";
 
-            //根据后缀判断是否为自动存档
-            if (full.Substring(full.Length - 4) == "auto")
-                auto.SetActive(true);
+                // 显示自动存档标识
+                auto.SetActive(metadata.isAutoSave);
+                
+                // 版本兼容性警告
+                bool versionMismatch = metadata.gameVersion != Application.version;
+                
+                // 验证存档完整性
+                bool isValid = Player.Instance.ValidateSave(i);
+                if (!isValid)
+                {
+                    recordName.color = corruptedColor;
+                    recordName.text = "存档已损坏";
+                }
+                else
+                {
+                    recordName.color = versionMismatch ? Color.yellow : Color.white;
+                }
+            }
             else
+            {
+                // 元数据读取失败，使用旧方式显示
+                string full = RecordData.Instance.recordName[i];
+                string date = full.Substring(0, 8);
+                string time = full.Substring(9, 6);            
+                TIME.SetDate(ref date);
+                TIME.SetTime(ref time);
+                recordName.text = date + " " + time;
+                
+                // 隐藏其他信息
                 auto.SetActive(false);
+                recordName.color = Color.white;
+            }
         }
     }
 }

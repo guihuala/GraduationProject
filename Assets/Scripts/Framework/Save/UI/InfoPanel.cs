@@ -7,20 +7,29 @@ using UnityEngine.SceneManagement;
 
 public class InfoPanel : MonoBehaviour
 {
-    [Header("按钮")] public Button[] Add;
+    [Header("按钮")] 
+    public Button[] Add;
     public Button[] Sub;
-    [Header("显示")] public Text sceneName;
+    
+    [Header("显示")] 
+    public Text sceneName;
     public Text level;
     public Text gameTime;
     public Text isFullScreen;
     public Text difficulty;
+    public Text playerName; //玩家名称显示
     public Image colorImg;
-    [Header("颜色预设")] [ColorUsage(true)] public Color[] colorPreset;
+    
+    [Header("颜色预设")] 
+    [ColorUsage(true)] 
+    public Color[] colorPreset;
     public Material m;
+
+    [Header("玩家名称输入")]
+    public InputField playerNameInput; //玩家名称输入框
 
     int difficultyID;
     int colorID = 3;
-
 
     private void Awake()
     {
@@ -50,6 +59,13 @@ public class InfoPanel : MonoBehaviour
             colorID--;
             Player.Instance.color = colorPreset[colorID];
         });
+
+        //玩家名称输入监听
+        if (playerNameInput != null)
+        {
+            playerNameInput.onEndEdit.AddListener(OnPlayerNameChanged);
+            playerNameInput.text = Player.Instance.playerName;
+        }
     }
 
     //不能在Awake中获取场景名，因为场景加载顺序问题
@@ -70,6 +86,7 @@ public class InfoPanel : MonoBehaviour
         level.text = Player.Instance.level.ToString();
         isFullScreen.text = Player.Instance.isFullScreen.ToString();
         difficulty.text = Player.Instance.difficulty.ToString();
+        playerName.text = $"玩家: {Player.Instance.playerName}";
         colorImg.color = Player.Instance.color;
         m.SetColor("_BaseColor", Player.Instance.color);
         gameTime.text = TIME.GetFormatTime((int)TIME.curT);
@@ -80,5 +97,15 @@ public class InfoPanel : MonoBehaviour
     {
         int i = SceneManager.GetActiveScene().buildIndex;
         SceneManager.LoadScene(i + d);
+    }
+
+    //玩家名称改变回调
+    void OnPlayerNameChanged(string newName)
+    {
+        if (!string.IsNullOrEmpty(newName))
+        {
+            Player.Instance.playerName = newName;
+            Debug.Log($"玩家名称已更新: {newName}");
+        }
     }
 }

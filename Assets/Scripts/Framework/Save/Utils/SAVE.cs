@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,7 +10,7 @@ public static class SAVE
 {
     //截图保存路径
     public static string shotPath = $"{Application.persistentDataPath}/Shot";
-    
+
     private static readonly string EncryptionKey = "GuihuaMoku";
     private static readonly byte[] Key = Encoding.UTF8.GetBytes(EncryptionKey.PadRight(16).Substring(0, 16));
     private static readonly byte[] Iv = new byte[16]; // 初始化向量
@@ -19,7 +20,148 @@ public static class SAVE
         return Path.Combine(Application.persistentDataPath, fileName);
     }
 
+    #region 存档元数据
+
+    /// <summary>
+    /// 存档元数据
+    /// </summary>
+    [System.Serializable]
+    public class SaveMetadata
+    {
+        public string version = "1.0.0"; // 存档版本
+        public string gameVersion = Application.version; // 游戏版本
+        public long createTime; // 创建时间戳
+        public long lastModifiedTime; // 最后修改时间戳
+        public string checksum; // 数据校验和
+        public int fileSize; // 文件大小
+        public string platform = Application.platform.ToString(); // 平台信息
+        public string playerName = ""; // 玩家名称（可选）
+        public string sceneName = ""; // 场景名称
+        public int playerLevel; // 玩家等级
+        public float playTime; // 游戏时间
+        public bool isAutoSave = false; // 是否为自动存档
+        public string description = ""; // 存档描述（可选）
+    }
+
+    /// <summary>
+    /// 带元数据的存档包装器
+    /// </summary>
+    [System.Serializable]
+    private class SaveDataWrapper
+    {
+        public SaveMetadata metadata;
+        public string gameData; // 加密后的游戏数据
+    }
+
+    /// <summary>
+    /// 创建存档元数据
+    /// </summary>
+    private static SaveMetadata CreateMetadata(object gameData, bool isAutoSave = false, string playerName = "",
+        string description = "")
+    {
+        string jsonData = JsonUtility.ToJson(gameData);
+
+        return new SaveMetadata
+        {
+            version = "1.0.0",
+            gameVersion = Application.version,
+            createTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            lastModifiedTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            checksum = CalculateChecksum(jsonData),
+            fileSize = Encoding.UTF8.GetByteCount(jsonData),
+            platform = Application.platform.ToString(),
+            playerName = playerName,
+            isAutoSave = isAutoSave,
+            description = description
+        };
+    }
+
+    /// <summary>
+    /// 更新存档元数据
+    /// </summary>
+    private static void UpdateMetadata(ref SaveMetadata metadata, object gameData)
+    {
+        string jsonData = JsonUtility.ToJson(gameData);
+        metadata.lastModifiedTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        metadata.checksum = CalculateChecksum(jsonData);
+        metadata.fileSize = Encoding.UTF8.GetByteCount(jsonData);
+    }
+
+    /// <summary>
+    /// 计算数据校验和
+    /// </summary>
+    private static string CalculateChecksum(string data)
+    {
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(data));
+            return BitConverter.ToString(hash).Replace("-", "").ToLower();
+        }
+    }
+
+    /// <summary>
+    /// 验证存档完整性
+    /// </summary>
+    public static bool ValidateSave(string fileName)
+    {
+        try
+        {
+            string path = GetPath(fileName);
+            if (!File.Exists(path))
+                return false;
+
+            string encryptedWrapper = File.ReadAllText(path);
+            string decryptedWrapper = Decrypt(encryptedWrapper);
+
+            if (string.IsNullOrEmpty(decryptedWrapper))
+                return false;
+
+            SaveDataWrapper wrapper = JsonUtility.FromJson<SaveDataWrapper>(decryptedWrapper);
+            string decryptedGameData = Decrypt(wrapper.gameData);
+
+            if (string.IsNullOrEmpty(decryptedGameData))
+                return false;
+
+            // 验证校验和
+            string currentChecksum = CalculateChecksum(decryptedGameData);
+            return wrapper.metadata.checksum == currentChecksum;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 获取存档元数据（不加载完整数据）
+    /// </summary>
+    public static SaveMetadata GetSaveMetadata(string fileName)
+    {
+        try
+        {
+            string path = GetPath(fileName);
+            if (!File.Exists(path))
+                return null;
+
+            string encryptedWrapper = File.ReadAllText(path);
+            string decryptedWrapper = Decrypt(encryptedWrapper);
+
+            if (string.IsNullOrEmpty(decryptedWrapper))
+                return null;
+
+            SaveDataWrapper wrapper = JsonUtility.FromJson<SaveDataWrapper>(decryptedWrapper);
+            return wrapper.metadata;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    #endregion
+
     #region 加密解密方法
+
     /// <summary>
     /// 加密字符串
     /// </summary>
@@ -29,9 +171,9 @@ public static class SAVE
         {
             aes.Key = Key;
             aes.IV = Iv;
-            
+
             ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
-            
+
             using (MemoryStream ms = new MemoryStream())
             {
                 using (CryptoStream cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
@@ -40,6 +182,7 @@ public static class SAVE
                     {
                         sw.Write(plainText);
                     }
+
                     return System.Convert.ToBase64String(ms.ToArray());
                 }
             }
@@ -54,14 +197,14 @@ public static class SAVE
         try
         {
             byte[] buffer = System.Convert.FromBase64String(cipherText);
-            
+
             using (Aes aes = Aes.Create())
             {
                 aes.Key = Key;
                 aes.IV = Iv;
-                
+
                 ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
-                
+
                 using (MemoryStream ms = new MemoryStream(buffer))
                 {
                     using (CryptoStream cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
@@ -80,6 +223,7 @@ public static class SAVE
             return string.Empty;
         }
     }
+
     #endregion
 
     #region PlayerPrefs
@@ -100,7 +244,7 @@ public static class SAVE
         string encryptedJson = PlayerPrefs.GetString(key, null);
         if (string.IsNullOrEmpty(encryptedJson))
             return null;
-            
+
         //解密数据
         string decryptedJson = Decrypt(encryptedJson);
         return string.IsNullOrEmpty(decryptedJson) ? null : decryptedJson;
@@ -110,14 +254,30 @@ public static class SAVE
 
     #region JSON
 
-    public static void JsonSave(string fileName, object data)
+    public static void JsonSave(string fileName, object data, bool isAutoSave = false, string playerName = "",
+        string description = "")
     {
-        string json = JsonUtility.ToJson(data);
-        //对JSON数据进行加密
-        string encryptedJson = Encrypt(json);
-        
-        File.WriteAllText(GetPath(fileName), encryptedJson);
-        Debug.Log($"存档成功 {GetPath(fileName)}");
+        string jsonData = JsonUtility.ToJson(data);
+
+        // 创建元数据
+        SaveMetadata metadata = CreateMetadata(data, isAutoSave, playerName, description);
+
+        // 加密游戏数据
+        string encryptedGameData = Encrypt(jsonData);
+
+        // 创建包装器
+        SaveDataWrapper wrapper = new SaveDataWrapper
+        {
+            metadata = metadata,
+            gameData = encryptedGameData
+        };
+
+        // 序列化并加密包装器
+        string wrapperJson = JsonUtility.ToJson(wrapper);
+        string encryptedWrapper = Encrypt(wrapperJson);
+
+        File.WriteAllText(GetPath(fileName), encryptedWrapper);
+        Debug.Log($"存档成功 {GetPath(fileName)} - 玩家: {playerName}, 场景: {metadata.sceneName}, 等级: {metadata.playerLevel}");
     }
 
     public static T JsonLoad<T>(string fileName)
@@ -126,18 +286,38 @@ public static class SAVE
         //检查文件是否存在
         if (File.Exists(path))
         {
-            string encryptedJson = File.ReadAllText(GetPath(fileName));
-            //解密数据
-            string decryptedJson = Decrypt(encryptedJson);
-            
-            if (string.IsNullOrEmpty(decryptedJson))
+            string encryptedWrapper = File.ReadAllText(GetPath(fileName));
+            //解密包装器
+            string decryptedWrapper = Decrypt(encryptedWrapper);
+
+            if (string.IsNullOrEmpty(decryptedWrapper))
             {
                 Debug.LogError($"解密失败 {path}");
                 return default;
             }
-            
-            var data = JsonUtility.FromJson<T>(decryptedJson);
-            Debug.Log($"读取成功 {path}");
+
+            // 反序列化包装器
+            SaveDataWrapper wrapper = JsonUtility.FromJson<SaveDataWrapper>(decryptedWrapper);
+
+            // 解密游戏数据
+            string decryptedGameData = Decrypt(wrapper.gameData);
+
+            if (string.IsNullOrEmpty(decryptedGameData))
+            {
+                Debug.LogError($"游戏数据解密失败 {path}");
+                return default;
+            }
+
+            // 验证数据完整性
+            string currentChecksum = CalculateChecksum(decryptedGameData);
+            if (wrapper.metadata.checksum != currentChecksum)
+            {
+                Debug.LogError($"存档数据损坏 {path}");
+                return default;
+            }
+
+            var data = JsonUtility.FromJson<T>(decryptedGameData);
+            Debug.Log($"读取成功 {path} - 版本: {wrapper.metadata.version}, 游戏时间: {wrapper.metadata.playTime}小时");
             return data;
         }
         else
@@ -301,7 +481,7 @@ public static class SAVE
         DeleteRecord();
         DeleteScreenShot();
     }
-    
+
     [UnityEditor.MenuItem("Tools/Debug/生成新密钥")]
     public static void GenerateNewKey()
     {
@@ -312,6 +492,37 @@ public static class SAVE
             string newKey = System.Convert.ToBase64String(aes.Key);
             Debug.Log($"新生成的密钥: {newKey}");
             Debug.Log($"密钥长度: {newKey.Length}");
+        }
+    }
+
+    [UnityEditor.MenuItem("Tools/Debug/验证所有存档")]
+    public static void ValidateAllSaves()
+    {
+        if (Directory.Exists(Application.persistentDataPath))
+        {
+            FileInfo[] files = new DirectoryInfo(Application.persistentDataPath).GetFiles("*");
+            int validCount = 0;
+            int totalCount = 0;
+
+            foreach (var file in files)
+            {
+                if (file.Name.EndsWith(".save") || file.Name.EndsWith(".auto"))
+                {
+                    totalCount++;
+                    bool isValid = ValidateSave(file.Name);
+                    if (isValid)
+                    {
+                        validCount++;
+                        Debug.Log($"✓ 存档有效: {file.Name}");
+                    }
+                    else
+                    {
+                        Debug.LogError($"✗ 存档损坏: {file.Name}");
+                    }
+                }
+            }
+
+            Debug.Log($"存档验证完成: {validCount}/{totalCount} 个存档有效");
         }
     }
 #endif

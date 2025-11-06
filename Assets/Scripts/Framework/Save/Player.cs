@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -21,6 +19,7 @@ public class Player : SingletonPersistent<Player>
     public Difficulty difficulty;       //难度
     [ColorUsage(true)]
     public Color color;                 //模型颜色
+    public string playerName = "Player"; // 玩家名称
     
     public class SaveData
     {
@@ -30,6 +29,7 @@ public class Player : SingletonPersistent<Player>
         public bool isFullScreen;
         public Color color;
         public Player.Difficulty difficulty;
+        public string playerName;
     }
 
     SaveData ForSave()
@@ -41,22 +41,24 @@ public class Player : SingletonPersistent<Player>
         savedata.isFullScreen = isFullScreen;
         savedata.color = color;
         savedata.difficulty = difficulty;
+        savedata.playerName = playerName;
         return savedata;
     }
 
     void ForLoad(SaveData savedata)
     {
         scensName = savedata.scensName;
-        level= savedata.level;
-        gameTime= savedata.gameTime;
-        isFullScreen= savedata.isFullScreen;
-        color=savedata.color;
-        difficulty= savedata.difficulty;
+        level = savedata.level;
+        gameTime = savedata.gameTime;
+        isFullScreen = savedata.isFullScreen;
+        color = savedata.color;
+        difficulty = savedata.difficulty;
+        playerName = savedata.playerName;
     }
 
-    public void Save(int id)
+    public void Save(int id, bool isAutoSave = false, string description = "")
     {
-        SAVE.JsonSave(RecordData.Instance.recordName[id], ForSave());
+        SAVE.JsonSave(RecordData.Instance.recordName[id], ForSave(), isAutoSave, playerName, description);
     }
 
     public void Load(int id)
@@ -73,5 +75,21 @@ public class Player : SingletonPersistent<Player>
     public void Delete(int id)
     {
         SAVE.JsonDelete(RecordData.Instance.recordName[id]);
+    }
+
+    /// <summary>
+    /// 获取存档元数据（不加载完整数据）
+    /// </summary>
+    public SAVE.SaveMetadata GetSaveMetadata(int id)
+    {
+        return SAVE.GetSaveMetadata(RecordData.Instance.recordName[id]);
+    }
+
+    /// <summary>
+    /// 验证存档完整性
+    /// </summary>
+    public bool ValidateSave(int id)
+    {
+        return SAVE.ValidateSave(RecordData.Instance.recordName[id]);
     }
 }
