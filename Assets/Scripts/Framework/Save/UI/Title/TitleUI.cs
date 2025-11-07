@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using GuiFramework;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
@@ -10,10 +11,10 @@ public class TitleUI : MonoBehaviour
     public Button Load; //载入游戏
     public Button New; //新游戏
     public Button Exit; //退出游戏
+    public Button Option;
 
     public GameObject recordPanel;
-    public GameObject versionWarningDialog; //版本警告对话框
-
+    
     private void Awake()
     {
         //读取最新存档
@@ -26,6 +27,7 @@ public class TitleUI : MonoBehaviour
         New.onClick.AddListener(NewGame);
         //退出游戏(此处不存档)
         Exit.onClick.AddListener(QuitGame);
+        Option.onClick.AddListener(OnSettingsButtonClicked);
     }
 
     private void OnDestroy()
@@ -119,6 +121,11 @@ public class TitleUI : MonoBehaviour
 
         //跳转至默认场景
         SceneManager.LoadScene(Player.Instance.scensName);
+    }
+    
+    public void OnSettingsButtonClicked()
+    {
+        UIManager.Instance.OpenPanel("SettingPanel");
     }
 
     void QuitGame()

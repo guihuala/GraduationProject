@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GuiFramework
 {
@@ -18,6 +19,9 @@ namespace GuiFramework
         // UI 面板的根节点
         private Transform _uiRoot;
 
+        // 确认面板预制体缓存
+        private GameObject _confirmPanelPrefab;
+
         public Transform UIRoot
         {
             get
@@ -32,11 +36,13 @@ namespace GuiFramework
         }
 
         public UIDatas uiDatas;
+        public ConfirmData confirmData;
 
         protected override void Awake()
         {
             base.Awake();
             InitDicts();
+            LoadConfirmPanelPrefab();
         }
 
         // 初始化字典
@@ -51,6 +57,23 @@ namespace GuiFramework
 
             _uiPrefabDict = new Dictionary<string, GameObject>();
             _panelDict = new Dictionary<string, BasePanel>();
+        }
+
+        // 加载确认面板预制体
+        private void LoadConfirmPanelPrefab()
+        {
+            if (confirmData != null && !string.IsNullOrEmpty(confirmData.confirmPath))
+            {
+                _confirmPanelPrefab = Resources.Load<GameObject>(confirmData.confirmPath);
+                if (_confirmPanelPrefab == null)
+                {
+                    Debug.LogError($"确认面板预制体未找到：{confirmData.confirmPath}");
+                }
+            }
+            else
+            {
+                Debug.LogError("确认面板配置数据未设置");
+            }
         }
 
         /// <summary>
@@ -131,6 +154,109 @@ namespace GuiFramework
             panel.ClosePanel();
 
             return true;
+        }
+
+        // ========== 确认面板功能 ==========
+
+        /// <summary>
+        /// 直接从路径打开确认面板
+        /// </summary>
+        private ConfirmPanel OpenConfirmPanel()
+        {
+            if (_confirmPanelPrefab == null)
+            {
+                Debug.LogError("确认面板预制体未加载");
+                return null;
+            }
+
+            // 实例化确认面板
+            GameObject panelObj = Instantiate(_confirmPanelPrefab, UIRoot, false);
+            var confirmPanel = panelObj.GetComponent<ConfirmPanel>();
+
+            if (confirmPanel == null)
+            {
+                Debug.LogError("确认面板脚本未挂载或未继承 ConfirmPanel");
+                Destroy(panelObj);
+                return null;
+            }
+
+            // 使用唯一名称打开面板，避免与普通面板冲突
+            string uniqueName = $"{confirmData.confirmName}_{System.Guid.NewGuid()}";
+            confirmPanel.OpenPanel(uniqueName);
+
+            // 不添加到 _panelDict 中，由确认面板自己管理生命周期
+            return confirmPanel;
+        }
+
+        /// <summary>
+        /// 显示确认对话框
+        /// </summary>
+        /// <param name="title">对话框标题</param>
+        /// <param name="message">对话框消息</param>
+        /// <param name="confirmText">确认按钮文本</param>
+        /// <param name="cancelText">取消按钮文本</param>
+        /// <param name="callback">回调函数，参数为用户选择结果</param>
+        public void ShowConfirm(string title, string message, string confirmText = "确定", string cancelText = "取消", System.Action<bool> callback = null)
+        {
+            StartCoroutine(ShowConfirmCoroutine(title, message, confirmText, cancelText, callback));
+        }
+
+        private IEnumerator ShowConfirmCoroutine(string title, string message, string confirmText, string cancelText, System.Action<bool> callback)
+        {
+            yield return null; // 等待一帧
+
+            // 直接从路径打开确认面板
+            var confirmPanel = OpenConfirmPanel();
+            if (confirmPanel != null)
+            {
+                confirmPanel.Initialize(title, message, confirmText, cancelText, callback);
+            }
+            else
+            {
+                Debug.LogError("无法打开确认面板");
+                callback?.Invoke(false);
+            }
+        }
+
+        /// <summary>
+        /// 显示简单消息对话框（只有确定按钮）
+        /// </summary>
+        public void ShowMessage(string title, string message, System.Action callback = null)
+        {
+            ShowConfirm(title, message, "确定", "", (result) =>
+            {
+                callback?.Invoke();
+            });
+        }
+
+        /// <summary>
+        /// 显示确认对话框（同步方式，使用协程等待结果）
+        /// </summary>
+        public System.Collections.IEnumerator ShowConfirmAsync(string title, string message, string confirmText = "确定", string cancelText = "取消")
+        {
+            bool? result = null;
+            
+            ShowConfirm(title, message, confirmText, cancelText, (r) =>
+            {
+                result = r;
+            });
+
+            // 等待用户做出选择
+            while (result == null)
+            {
+                yield return null;
+            }
+
+            yield return result;
+        }
+
+        /// <summary>
+        /// 重新加载确认面板预制体（用于热重载）
+        /// </summary>
+        public void ReloadConfirmPanel()
+        {
+            _confirmPanelPrefab = null;
+            LoadConfirmPanelPrefab();
         }
     }
 }

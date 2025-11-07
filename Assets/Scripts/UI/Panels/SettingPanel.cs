@@ -4,158 +4,472 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
-using UnityEngine.InputSystem; // 新增
+using UnityEngine.InputSystem;
+using TMPro;
+using System.Collections;
+using System.Collections.Generic;
 
 public class SettingsPanel : BasePanel
 {
-    [Header("组件配置")]
-    public Slider bgmVolumeSlider;
+    [Header("组件配置")] public Slider bgmVolumeSlider;
     public Slider sfxVolumeSlider;
 
-    [Header("多语言")]
-    public Dropdown languageDropdown;
+    [Header("多语言")] public TMP_Dropdown languageDropdown;
 
-    [Header("导航/页签")]
-    public Button tabBasicButton;
+    [Header("导航/页签")] public Button tabBasicButton;
     public Button tabBindingsButton;
     public GameObject basicPage;
     public GameObject bindingsPage;
 
-    [Header("键位设置")]
-    public Transform keybindingContainer;
+    [Header("键位设置")] public Transform keybindingContainer;
     public GameObject keybindingItemPrefab;
+    public Button resetAllBindingsButton;
+    public Text keybindingHintText;
 
-    public Button backButton;
+    [Header("按钮")] public Button backButton;
 
     private PlayerInputActions inputActions;
+    private bool settingsChanged = false;
 
     private void Start()
     {
-        bgmVolumeSlider.value = AudioManager.Instance.bgmVolumeFactor;
-        sfxVolumeSlider.value = AudioManager.Instance.sfxVolumeFactor;
+        InitializeSettings();
+        InitializeUIEvents();
+        InitializeKeybindings();
 
-        bgmVolumeSlider.onValueChanged.AddListener(ChangeBgmVolume);
-        sfxVolumeSlider.onValueChanged.AddListener(ChangeSfxVolume);
+        if (inputActions != null)
+        {
+            InitKeybindingUI();
+        }
 
-        backButton.onClick.AddListener(SaveSettings);
-        
-        InitLanguageDropdown();
-
-        // === 3) 页签绑定 ===
-        if (tabBasicButton)    tabBasicButton.onClick.AddListener(() => SwitchPage(true));
-        if (tabBindingsButton) tabBindingsButton.onClick.AddListener(() => SwitchPage(false));
-        SwitchPage(true); // 默认显示基础设置
-
-        // === 4) 键位系统初始化 ===
-        // 注意：确保已在 .inputactions 上勾选 “Generate C# Class”，并名为 PlayerInputActions
-        inputActions = new PlayerInputActions();
-
-        // 从 PlayerPrefs 载入用户自定义绑定（KeybindingItem 已实现该静态方法）
-        KeybindingItem.LoadAllBindings(inputActions);
-
-        // 生成键位条目 UI
-        InitKeybindingUI();
+        // 初始提示
+        if (keybindingHintText != null)
+        {
+            keybindingHintText.text = "点击任意动作旁边的按钮来重新绑定键位";
+        }
     }
 
-    private void SwitchPage(bool showBasic)
+    private void InitializeSettings()
     {
-        if (basicPage)   basicPage.SetActive(showBasic);
-        if (bindingsPage) bindingsPage.SetActive(!showBasic);
-        
-        if (tabBasicButton)    tabBasicButton.interactable = !showBasic;
-        if (tabBindingsButton) tabBindingsButton.interactable = showBasic;
+        // 音量设置
+        if (bgmVolumeSlider != null)
+            bgmVolumeSlider.value = AudioManager.Instance.bgmVolumeFactor;
+
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.value = AudioManager.Instance.sfxVolumeFactor;
+
+        // 语言设置
+        InitLanguageDropdown();
+    }
+
+    private void InitializeUIEvents()
+    {
+        // 音量滑块事件
+        if (bgmVolumeSlider != null)
+            bgmVolumeSlider.onValueChanged.AddListener(ChangeBgmVolume);
+
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.onValueChanged.AddListener(ChangeSfxVolume);
+
+        // 按钮事件
+        if (backButton != null)
+            backButton.onClick.AddListener(OnBackButtonClicked);
+
+        // 页签切换
+        if (tabBasicButton != null)
+            tabBasicButton.onClick.AddListener(() => SwitchPage(true));
+
+        if (tabBindingsButton != null)
+            tabBindingsButton.onClick.AddListener(() => SwitchPage(false));
+
+        // 重置所有绑定
+        if (resetAllBindingsButton != null)
+            resetAllBindingsButton.onClick.AddListener(ResetAllBindings);
+
+        // 默认显示基础设置页
+        SwitchPage(true);
+
+        // 标记设置未改变
+        settingsChanged = false;
+    }
+
+    private void InitializeKeybindings()
+    {
+        try
+        {
+            inputActions = new PlayerInputActions();
+            KeybindingItem.LoadAllBindings(inputActions);
+            InitKeybindingUI();
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"初始化键位设置失败: {e.Message}");
+        }
     }
 
     private void InitKeybindingUI()
     {
-        if (keybindingContainer == null || keybindingItemPrefab == null || inputActions == null) return;
+        if (keybindingContainer == null || keybindingItemPrefab == null || inputActions == null)
+        {
+            Debug.LogWarning("键位设置UI组件未完全配置");
+            return;
+        }
 
-        // 清空旧条目（防止重复生成）
-        for (int i = keybindingContainer.childCount - 1; i >= 0; i--)
-            GameObject.Destroy(keybindingContainer.GetChild(i).gameObject);
+        // 清空旧条目
+        foreach (Transform child in keybindingContainer)
+        {
+            Destroy(child.gameObject);
+        }
 
-        // 遍历每个 Action，实例化一条 KeybindingItem 并初始化
+        // 按 Action Map 分组显示
         foreach (var map in inputActions.asset.actionMaps)
         {
+            // 跳过空的动作组
+            if (map.actions.Count == 0) continue;
+
+            // 添加分组标题
+            CreateGroupHeader(map.name);
+
+            // 添加动作条目
             foreach (var action in map.actions)
             {
-                var itemGO = GameObject.Instantiate(keybindingItemPrefab, keybindingContainer);
-                var item = itemGO.GetComponent<KeybindingItem>();
-                if (item != null)
+                if (action.bindings.Count > 0 && !action.name.StartsWith("UI_"))
                 {
-                    item.Init(action); // 内部会显示当前绑定、支持交互式重绑与保存覆盖
+                    CreateAllBindingItems(action);
                 }
             }
         }
     }
 
-    // ========== 语言相关（保留原逻辑） ==========
+    private void CreateAllBindingItems(InputAction action)
+    {
+        var bindingItems = GetBindingItemsForAction(action);
+
+        // 为每个绑定创建独立的条目
+        foreach (var item in bindingItems)
+        {
+            var itemGO = Instantiate(keybindingItemPrefab, keybindingContainer);
+            var keybindingItem = itemGO.GetComponent<KeybindingItem>();
+            if (keybindingItem != null)
+            {
+                keybindingItem.Init(action, item.bindingIndex, item.displayName);
+            }
+            else
+            {
+                Debug.LogWarning($"KeybindingItem 组件在预制体 {keybindingItemPrefab.name} 上未找到");
+            }
+        }
+    }
+
+    private List<BindingItem> GetBindingItemsForAction(InputAction action)
+    {
+        var items = new List<BindingItem>();
+        var compositeGroups = new Dictionary<string, List<(int index, string partName)>>();
+
+        // 首先收集所有复合绑定及其部分
+        for (int i = 0; i < action.bindings.Count; i++)
+        {
+            var binding = action.bindings[i];
+
+            if (binding.isComposite)
+            {
+                // 复合绑定开始
+                string compositeName = LocalizationManager.GetCompositeDisplayName(binding.name);
+                compositeGroups[compositeName] = new List<(int, string)>();
+            }
+            else if (binding.isPartOfComposite && compositeGroups.Count > 0)
+            {
+                // 复合绑定的部分
+                var lastComposite = compositeGroups.Last();
+                string partName = LocalizationManager.GetCompositePartName(binding.name);
+                lastComposite.Value.Add((i, partName));
+            }
+            else if (!binding.isComposite && !binding.isPartOfComposite)
+            {
+                // 普通绑定（如手柄摇杆、鼠标等）
+                string deviceType = LocalizationManager.GetDeviceTypeFromBinding(binding.path);
+                string displayName = $"{LocalizationManager.GetActionName(action.name)} - {deviceType}";
+                items.Add(new BindingItem
+                {
+                    bindingIndex = i,
+                    displayName = displayName
+                });
+            }
+        }
+
+        // 为每个复合绑定的每个部分创建独立条目
+        foreach (var compositeGroup in compositeGroups)
+        {
+            string compositeName = compositeGroup.Key;
+            foreach (var part in compositeGroup.Value)
+            {
+                string displayName = $"{LocalizationManager.GetActionName(action.name)} - {compositeName} - {part.partName}";
+                items.Add(new BindingItem
+                {
+                    bindingIndex = part.index,
+                    displayName = displayName
+                });
+            }
+        }
+
+        return items;
+    }
+
+    // 辅助类用于存储绑定项信息
+    private class BindingItem
+    {
+        public int bindingIndex;
+        public string displayName;
+    }
+
+    private void CreateGroupHeader(string headerText)
+    {
+        var headerGO = new GameObject("Header_" + headerText);
+        headerGO.transform.SetParent(keybindingContainer);
+
+        // 添加布局元素
+        var layoutElement = headerGO.AddComponent<LayoutElement>();
+        layoutElement.minHeight = 40;
+
+        // 添加水平布局
+        var horizontalLayout = headerGO.AddComponent<HorizontalLayoutGroup>();
+        horizontalLayout.childAlignment = TextAnchor.MiddleLeft;
+        horizontalLayout.padding = new RectOffset(10, 0, 5, 5);
+
+        // 创建文本组件
+        var textGO = new GameObject("HeaderText");
+        textGO.transform.SetParent(headerGO.transform);
+
+        var text = textGO.AddComponent<TextMeshProUGUI>();
+        text.text = LocalizationManager.GetMapName(headerText);
+        text.fontSize = 18;
+        text.fontStyle = FontStyles.Bold;
+        text.color = new Color(0.8f, 0.8f, 1f); // 浅蓝色
+
+        var textLayout = textGO.AddComponent<LayoutElement>();
+        textLayout.flexibleWidth = 1;
+    }
+
+    private void ResetAllBindings()
+    {
+        if (inputActions == null) return;
+
+        UIManager.Instance.ShowConfirm(
+            "重置所有键位",
+            "确定要将所有键位重置为默认设置吗？此操作不可撤销。",
+            "确定重置",
+            "取消",
+            (confirmed) =>
+            {
+                if (confirmed)
+                {
+                    PerformResetAllBindings();
+                }
+            }
+        );
+    }
+
+    private void PerformResetAllBindings()
+    {
+        foreach (var map in inputActions.asset.actionMaps)
+        {
+            foreach (var action in map.actions)
+            {
+                action.RemoveAllBindingOverrides();
+                string key = $"Rebind_{map.name}_{action.name}";
+                if (PlayerPrefs.HasKey(key))
+                    PlayerPrefs.DeleteKey(key);
+            }
+        }
+
+        PlayerPrefs.Save();
+        InitKeybindingUI();
+        ShowTempMessage("所有键位已重置为默认设置", 2f);
+        settingsChanged = true;
+    }
+
+    private void ShowTempMessage(string message, float duration)
+    {
+        if (keybindingHintText != null)
+        {
+            StartCoroutine(ShowTempMessageCoroutine(message, duration));
+        }
+    }
+
+    private IEnumerator ShowTempMessageCoroutine(string message, float duration)
+    {
+        string originalText = keybindingHintText.text;
+        keybindingHintText.text = $"<color=green>{message}</color>";
+        keybindingHintText.color = Color.green;
+
+        yield return new WaitForSeconds(duration);
+
+        keybindingHintText.text = originalText;
+        keybindingHintText.color = Color.white;
+    }
+
+    private void SwitchPage(bool showBasic)
+    {
+        if (basicPage != null)
+            basicPage.SetActive(showBasic);
+
+        if (bindingsPage != null)
+            bindingsPage.SetActive(!showBasic);
+
+        // 更新按钮交互状态
+        if (tabBasicButton != null)
+            tabBasicButton.interactable = !showBasic;
+
+        if (tabBindingsButton != null)
+            tabBindingsButton.interactable = showBasic;
+
+        // 更新按钮样式（可选）
+        UpdateTabAppearance(tabBasicButton, showBasic);
+        UpdateTabAppearance(tabBindingsButton, !showBasic);
+    }
+
+    private void UpdateTabAppearance(Button tabButton, bool isActive)
+    {
+        if (tabButton == null) return;
+
+        var colors = tabButton.colors;
+        colors.normalColor = isActive ? new Color(0.2f, 0.4f, 0.8f) : Color.gray;
+        colors.selectedColor = new Color(0.2f, 0.6f, 1f);
+        tabButton.colors = colors;
+
+        // 更新文本颜色
+        var text = tabButton.GetComponentInChildren<TextMeshProUGUI>();
+        if (text != null)
+        {
+            text.color = isActive ? new Color(0.9f, 0.9f, 1f) : new Color(0.7f, 0.7f, 0.7f);
+        }
+    }
+
+    // ========== 语言设置 ==========
     private void InitLanguageDropdown()
     {
         if (languageDropdown == null) return;
 
-        var locales = LocalizationSettings.AvailableLocales.Locales;
-        languageDropdown.options = locales
-            .Select(l => new Dropdown.OptionData(l.LocaleName)) // TMP 用 new TMP_Dropdown.OptionData(...)
-            .ToList();
+        try
+        {
+            var locales = LocalizationSettings.AvailableLocales.Locales;
+            if (locales == null || locales.Count == 0)
+            {
+                Debug.LogWarning("没有可用的语言设置");
+                return;
+            }
 
-        // 从存档恢复，或使用当前选中的 Locale
-        string savedCode = PlayerPrefs.GetString("LanguageCode",
-            LocalizationSettings.SelectedLocale != null
-                ? LocalizationSettings.SelectedLocale.Identifier.Code
-                : (locales.Count > 0 ? locales[0].Identifier.Code : "en"));
+            languageDropdown.ClearOptions();
+            languageDropdown.options = locales
+                .Select(l => new TMP_Dropdown.OptionData(l.LocaleName))
+                .ToList();
 
-        int idx = Mathf.Max(0, locales.FindIndex(l => l.Identifier.Code == savedCode));
-        languageDropdown.value = idx;
-        languageDropdown.RefreshShownValue();
+            // 从存档恢复，或使用当前选中的 Locale
+            string savedCode = PlayerPrefs.GetString("LanguageCode",
+                LocalizationSettings.SelectedLocale != null
+                    ? LocalizationSettings.SelectedLocale.Identifier.Code
+                    : (locales.Count > 0 ? locales[0].Identifier.Code : "en"));
 
-        // 监听切换
-        languageDropdown.onValueChanged.AddListener(OnLanguageDropdownChanged);
+            int idx = Mathf.Max(0, locales.FindIndex(l => l.Identifier.Code == savedCode));
+            languageDropdown.value = idx;
+            languageDropdown.RefreshShownValue();
+
+            // 监听切换
+            languageDropdown.onValueChanged.AddListener(OnLanguageDropdownChanged);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"初始化语言下拉菜单失败: {e.Message}");
+        }
     }
 
     private void OnLanguageDropdownChanged(int index)
     {
-        var locales = LocalizationSettings.AvailableLocales.Locales;
-        if (index < 0 || index >= locales.Count) return;
+        if (languageDropdown == null) return;
 
-        var locale = locales[index];
-        LocalizationSettings.SelectedLocale = locale;
-        PlayerPrefs.SetString("LanguageCode", locale.Identifier.Code);
-        PlayerPrefs.Save();
+        try
+        {
+            var locales = LocalizationSettings.AvailableLocales.Locales;
+            if (index < 0 || index >= locales.Count) return;
 
-        // 若有自定义的非 LocalizeStringEvent 文本/资源，需要在这里手动刷新
-        // RefreshCustomLocalizedContent();
+            var locale = locales[index];
+            LocalizationSettings.SelectedLocale = locale;
+            PlayerPrefs.SetString("LanguageCode", locale.Identifier.Code);
+
+            settingsChanged = true;
+
+            Debug.Log($"语言已切换为: {locale.LocaleName}");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"切换语言失败: {e.Message}");
+        }
     }
-    
-    private void ChangeMainVolume(float value)
-    {
-        AudioManager.Instance.ChangeMainVolume(value);
-    }
 
+    // ========== 音量设置 ==========
     private void ChangeBgmVolume(float value)
     {
-        AudioManager.Instance.ChangeBgmVolume(value);
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.ChangeBgmVolume(value);
+            settingsChanged = true;
+        }
     }
 
     private void ChangeSfxVolume(float value)
     {
-        AudioManager.Instance.ChangeSfxVolume(value);
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.ChangeSfxVolume(value);
+            settingsChanged = true;
+        }
     }
 
-    // ========== 保存 ==========
-    private void SaveSettings()
+    // ========== 保存设置 ==========
+    private void SaveAllSettings()
     {
-        // 音量参数保存（你原有逻辑）
-        PlayerPrefs.SetFloat("MainVolume", AudioManager.Instance.mainVolume);
-        PlayerPrefs.SetFloat("BgmVolumeFactor", AudioManager.Instance.bgmVolumeFactor);
-        PlayerPrefs.SetFloat("SfxVolumeFactor", AudioManager.Instance.sfxVolumeFactor);
+        try
+        {
+            // 音量参数保存
+            if (AudioManager.Instance != null)
+            {
+                PlayerPrefs.SetFloat("MainVolume", AudioManager.Instance.mainVolume);
+                PlayerPrefs.SetFloat("BgmVolumeFactor", AudioManager.Instance.bgmVolumeFactor);
+                PlayerPrefs.SetFloat("SfxVolumeFactor", AudioManager.Instance.sfxVolumeFactor);
+            }
 
-        // 键位重绑由 KeybindingItem 在完成重绑时逐条保存为 JSON（无需在此重复保存）
-        // 参考：KeybindingItem.SaveBinding / LoadAllBindings。:contentReference[oaicite:5]{index=5}
+            // 键位重绑由 KeybindingItem 在完成重绑时逐条保存
+            // 这里只需要保存其他设置
 
-        PlayerPrefs.Save();
+            PlayerPrefs.Save();
+            settingsChanged = false;
 
-        UIManager.Instance.ClosePanel(panelName);
-        Debug.Log("Settings Saved!");
+            Debug.Log("所有设置已保存!");
+
+            // 显示保存成功提示
+            ShowTempMessage("设置已保存!", 1.5f);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"保存设置失败: {e.Message}");
+        }
+    }
+
+    private void OnBackButtonClicked()
+    {
+        SaveAllSettings();
+        ClosePanel();
+    }
+
+    private void ClosePanel()
+    {
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.ClosePanel(panelName);
+        }
+        else
+        {
+            gameObject.SetActive(false);
+        }
     }
 }

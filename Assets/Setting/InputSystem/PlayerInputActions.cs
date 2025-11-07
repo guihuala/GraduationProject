@@ -315,7 +315,7 @@ public partial class @PlayerInputActions: IInputActionCollection2, IDisposable
                     ""name"": ""UI_Interaction"",
                     ""type"": ""Button"",
                     ""id"": ""c1e35a27-856a-4c52-b867-ddc95d671c6a"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
