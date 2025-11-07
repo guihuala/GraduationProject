@@ -61,7 +61,7 @@ public class KeybindingItem : MonoBehaviour
         
         // 显示提示
         if (bindingText != null)
-            bindingText.text = "<color=yellow>等待输入...</color>";
+            bindingText.text = $"<color=yellow>{LocalizationManager.GetUIText("RebindWaiting")}</color>";
         
         // 设置重绑定参数
         var rebindOperation = action.PerformInteractiveRebinding(bindingIndex)
@@ -110,12 +110,12 @@ public class KeybindingItem : MonoBehaviour
         if (bindingText != null)
         {
             string originalText = bindingText.text;
-            bindingText.text = "<color=green>✓ 绑定成功!</color>";
+            bindingText.text = $"<color=green>{LocalizationManager.GetUIText("RebindSuccess")}</color>";
             yield return new WaitForSeconds(1f);
             bindingText.text = originalText;
         }
     }
-
+    
     private void ResetBinding()
     {
         // 移除绑定覆盖，恢复默认设置
@@ -131,7 +131,7 @@ public class KeybindingItem : MonoBehaviour
     {
         if (bindingText != null)
         {
-            bindingText.text = "<color=green>✓ 已重置!</color>";
+            bindingText.text = $"<color=green>{LocalizationManager.GetUIText("ResetSuccess")}</color>";
             yield return new WaitForSeconds(1f);
             UpdateBindingDisplay();
         }

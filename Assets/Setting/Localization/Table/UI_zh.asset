@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
-  m_Name: Table_zh
+  m_Name: UI_zh
   m_EditorClassIdentifier: 
   m_LocaleId:
     m_Code: zh
@@ -28,6 +28,34 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 14751567437824
     m_Localized: "\u9000\u51FA\u6E38\u620F"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498040970174464
+    m_Localized: "\u79FB\u52A8"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498049337810944
+    m_Localized: "\u4EA4\u4E92"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498144493985792
+    m_Localized: "\u51B2\u523A"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498322605105152
+    m_Localized: "\u70B9\u51FB\u4EFB\u610F\u52A8\u4F5C\u65C1\u8FB9\u7684\u6309\u94AE\u6765\u91CD\u65B0\u7ED1\u5B9A\u952E\u4F4D"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498349582868480
+    m_Localized: "\u7B49\u5F85\u8F93\u5165..."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498288950009856
+    m_Localized: "\u624B\u67C4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498261699616768
+    m_Localized: "\u952E\u76D8"
     m_Metadata:
       m_Items: []
   references:

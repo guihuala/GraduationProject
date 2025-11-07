@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
-  m_Name: Table_en
+  m_Name: UI_en
   m_EditorClassIdentifier: 
   m_LocaleId:
     m_Code: en
@@ -28,6 +28,34 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 14751567437824
     m_Localized: Exit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498144493985792
+    m_Localized: Dash
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498049337810944
+    m_Localized: Interaction
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498040970174464
+    m_Localized: Move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498349582868480
+    m_Localized: Waiting for input...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498322605105152
+    m_Localized: Click the button next to any action to rebind keys
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498288950009856
+    m_Localized: Gamepad
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498261699616768
+    m_Localized: Keyboard
     m_Metadata:
       m_Items: []
   references:

@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
-  m_Name: Table Shared Data
+  m_Name: UI Shared Data
   m_EditorClassIdentifier: 
-  m_TableCollectionName: Table
+  m_TableCollectionName: UI
   m_TableCollectionNameGuidString: af61de8a2c4f9481e9f52332ba0ff45d
   m_Entries:
   - m_Id: 14751567437824
@@ -25,6 +25,34 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 509221003264
     m_Key: Start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498040970174464
+    m_Key: ACTION_Move
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498049337810944
+    m_Key: ACTION_Interaction
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498144493985792
+    m_Key: ACTION_Dash
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498261699616768
+    m_Key: GROUP_Keyboard
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498288950009856
+    m_Key: GROUP_Gamepad
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498322605105152
+    m_Key: UI_RebindHint
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3498349582868480
+    m_Key: UI_RebindWaiting
     m_Metadata:
       m_Items: []
   m_Metadata:

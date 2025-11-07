@@ -45,8 +45,46 @@ public class SettingsPanel : BasePanel
         // 初始提示
         if (keybindingHintText != null)
         {
-            keybindingHintText.text = "点击任意动作旁边的按钮来重新绑定键位";
+            keybindingHintText.text = LocalizationManager.GetUIText("RebindHint");
         }
+    }
+
+    private void ResetAllBindings()
+    {
+        if (inputActions == null) return;
+
+        UIManager.Instance.ShowConfirm(
+            LocalizationManager.GetUIText("ResetAllConfirmTitle"),
+            LocalizationManager.GetUIText("ResetAllConfirmMessage"),
+            LocalizationManager.GetUIText("ResetAllConfirmOK"),
+            LocalizationManager.GetUIText("ResetAllConfirmCancel"),
+            (confirmed) =>
+            {
+                if (confirmed)
+                {
+                    PerformResetAllBindings();
+                }
+            }
+        );
+    }
+
+    private void PerformResetAllBindings()
+    {
+        foreach (var map in inputActions.asset.actionMaps)
+        {
+            foreach (var action in map.actions)
+            {
+                action.RemoveAllBindingOverrides();
+                string key = $"Rebind_{map.name}_{action.name}";
+                if (PlayerPrefs.HasKey(key))
+                    PlayerPrefs.DeleteKey(key);
+            }
+        }
+
+        PlayerPrefs.Save();
+        InitKeybindingUI();
+        ShowTempMessage(LocalizationManager.GetUIText("AllBindingsReset"), 2f);
+        settingsChanged = true;
     }
 
     private void InitializeSettings()
@@ -248,44 +286,6 @@ public class SettingsPanel : BasePanel
 
         var textLayout = textGO.AddComponent<LayoutElement>();
         textLayout.flexibleWidth = 1;
-    }
-
-    private void ResetAllBindings()
-    {
-        if (inputActions == null) return;
-
-        UIManager.Instance.ShowConfirm(
-            "重置所有键位",
-            "确定要将所有键位重置为默认设置吗？此操作不可撤销。",
-            "确定重置",
-            "取消",
-            (confirmed) =>
-            {
-                if (confirmed)
-                {
-                    PerformResetAllBindings();
-                }
-            }
-        );
-    }
-
-    private void PerformResetAllBindings()
-    {
-        foreach (var map in inputActions.asset.actionMaps)
-        {
-            foreach (var action in map.actions)
-            {
-                action.RemoveAllBindingOverrides();
-                string key = $"Rebind_{map.name}_{action.name}";
-                if (PlayerPrefs.HasKey(key))
-                    PlayerPrefs.DeleteKey(key);
-            }
-        }
-
-        PlayerPrefs.Save();
-        InitKeybindingUI();
-        ShowTempMessage("所有键位已重置为默认设置", 2f);
-        settingsChanged = true;
     }
 
     private void ShowTempMessage(string message, float duration)
