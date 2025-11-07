@@ -440,14 +440,14 @@ public static class SAVE
     #region 工具
 
 #if UNITY_EDITOR
-    [UnityEditor.MenuItem("Tools/Clear Data/存档列表")]
+    [UnityEditor.MenuItem("Tools/GuiTools/Clear Data/存档列表")]
     public static void DeleteRecord()
     {
         UnityEngine.PlayerPrefs.DeleteAll();
         Debug.Log("清空存档列表");
     }
 
-    [UnityEditor.MenuItem("Tools/Clear Data/玩家存档文件")]
+    [UnityEditor.MenuItem("Tools/GuiTools/Clear Data/玩家存档文件")]
     public static void DeletePlayerData()
     {
         ClearDirectory(Application.persistentDataPath);
@@ -467,14 +467,14 @@ public static class SAVE
         }
     }
 
-    [UnityEditor.MenuItem("Tools/Clear Data/截图文件")]
+    [UnityEditor.MenuItem("Tools/GuiTools/Clear Data/截图文件")]
     public static void DeleteScreenShot()
     {
         ClearDirectory(shotPath);
         Debug.Log("删除所有截图");
     }
 
-    [UnityEditor.MenuItem("Tools/Clear Data/所有数据")]
+    [UnityEditor.MenuItem("Tools/GuiTools/Clear Data/所有数据")]
     public static void DeleteAll()
     {
         DeletePlayerData();
@@ -482,7 +482,7 @@ public static class SAVE
         DeleteScreenShot();
     }
 
-    [UnityEditor.MenuItem("Tools/Debug/生成新密钥")]
+    [UnityEditor.MenuItem("Tools/GuiTools/SaveDebug/生成新密钥")]
     public static void GenerateNewKey()
     {
         //生成随机密钥
@@ -495,7 +495,7 @@ public static class SAVE
         }
     }
 
-    [UnityEditor.MenuItem("Tools/Debug/验证所有存档")]
+    [UnityEditor.MenuItem("Tools/GuiTools/SaveDebug/验证所有存档")]
     public static void ValidateAllSaves()
     {
         if (Directory.Exists(Application.persistentDataPath))

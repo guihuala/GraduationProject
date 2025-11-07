@@ -4,7 +4,7 @@ using System.IO;
 
 public class CodeLineCounter
 {
-    [MenuItem("Tools/code lines statistic")]
+    [MenuItem("Tools/GuiTools/code lines statistic")]
     static void CountLines()
     {
         string[] guids = AssetDatabase.FindAssets("t:Script", new[] { "Assets/Scripts" });

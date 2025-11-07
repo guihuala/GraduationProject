@@ -12,7 +12,7 @@ namespace GuiFramework
         private string searchPath = "Assets/";
         private Vector2 scrollPosition;
     
-        [MenuItem("Tools/UI Manager/UIData Configurator")]
+        [MenuItem("Tools/GuiTools/Configurator/UIData Configurator")]
         public static void ShowWindow()
         {
             GetWindow<UIDataEditor>("UIData Configurator");

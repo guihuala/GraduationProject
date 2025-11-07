@@ -14,7 +14,7 @@ namespace GuiFramework
         private bool includeSubfolders = true;
         private string[] audioExtensions = new string[] { ".wav", ".mp3", ".ogg", ".aiff" };
     
-        [MenuItem("Tools/Audio Manager/AudioData Configurator")]
+        [MenuItem("Tools/GuiTools/Configurator/AudioData Configurator")]
         public static void ShowWindow()
         {
             GetWindow<AudioDataEditor>("AudioData Configurator");
