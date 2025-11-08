@@ -1,114 +1,219 @@
-using DG.Tweening;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
+using UnityEngine.SceneManagement;
+using System.Linq;
+using DG.Tweening;
 
 namespace GuiFramework
 {
-    [Serializable]
-    public class AudioInfo
-    {
-        public string audioName;
-        public AudioSource audioSource;
-    }
-
     public class AudioManager : SingletonPersistent<AudioManager>
     {
-        // 存储所有BGM的音频信息
-        public List<AudioInfo> bgmAudioInfoList;
-
-        // 存储所有SFX的音频信息
-        public List<AudioInfo> sfxAudioInfoList;
-
-        // 音量控制全局音量
-        public float mainVolume;
-
-        // BGM音量因子，实际音量 = mainVolume * bgmVolumeFactor
-        public float bgmVolumeFactor;
-
-        // SFX音量因子，实际音量 = mainVolume * sfxVolumeFactor
-        public float sfxVolumeFactor;
-
-        // 音频资源的根节点
+        [Header("音频配置")]
         public AudioDatas audioDatas;
-
-        private GameObject _bgmSourcesRootGO;
-        private GameObject _sfxSourcesRootGO;
-
-        // 引用AudioMixer
         public AudioMixer audioMixer;
-
-        // 暴露参数名称
+        
+        [Header("场景音频配置")]
+        public SceneAudioConfig defaultSceneConfig;
+        
+        [Header("音频池设置")]
+        public int maxAudioSources = 20;
+        public bool enableAudioPooling = true;
+        
+        // 当前场景配置
+        private SceneAudioConfig currentSceneConfig;
+        
+        // 统一使用分类字典管理所有音频
+        private Dictionary<AudioCategory, List<AudioInfo>> categorizedAudio = new Dictionary<AudioCategory, List<AudioInfo>>();
+        
+        // 音频对象池（只用于SFX，BGM不参与对象池）
+        private Queue<AudioSource> audioSourcePool = new Queue<AudioSource>();
+        private Transform audioPoolRoot;
+        private Transform _bgmSourcesRootGO;
+        private Transform _sfxSourcesRootGO;
+        
+        // 音量设置
+        public float mainVolume { get; private set; }
+        public float bgmVolumeFactor { get; private set; }
+        public float sfxVolumeFactor { get; private set; }
+        
         private const string BGM_VOLUME_PARAM = "BGM";
         private const string SFX_VOLUME_PARAM = "Sfx";
 
         protected override void Awake()
         {
             base.Awake();
-
-            // 创建BGM和SFX的AudioSource根节点
-            _bgmSourcesRootGO = new GameObject("BGM_ROOT");
-            _sfxSourcesRootGO = new GameObject("SFX_ROOT");
-
-            _bgmSourcesRootGO.transform.SetParent(transform);
-            _sfxSourcesRootGO.transform.SetParent(transform);
-
-            // 加载存储的音量设置
-            mainVolume = PlayerPrefs.GetFloat("MainVolume", 1f);
-            bgmVolumeFactor = PlayerPrefs.GetFloat("BgmVolumeFactor", .8f);
-            sfxVolumeFactor = PlayerPrefs.GetFloat("SfxVolumeFactor", .8f);
+            InitializeAudioSystem();
         }
-
-        private void Start()
+        
+        private void InitializeAudioSystem()
         {
-            // 初始化AudioMixer的音量
-            ChangeBgmVolume(bgmVolumeFactor);
-            ChangeSfxVolume(sfxVolumeFactor);
+            // 创建根节点
+            _bgmSourcesRootGO = new GameObject("BGM_ROOT").transform;
+            _sfxSourcesRootGO = new GameObject("SFX_ROOT").transform;
+            _bgmSourcesRootGO.SetParent(transform);
+            _sfxSourcesRootGO.SetParent(transform);
+            
+            // 初始化分类字典
+            foreach (AudioCategory category in System.Enum.GetValues(typeof(AudioCategory)))
+            {
+                categorizedAudio[category] = new List<AudioInfo>();
+            }
+            
+            // 创建对象池（只用于SFX）
+            audioPoolRoot = new GameObject("AudioPool").transform;
+            audioPoolRoot.SetParent(transform);
+            
+            for (int i = 0; i < maxAudioSources; i++)
+            {
+                CreatePooledAudioSource();
+            }
+            
+            // 注册场景加载事件
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            
+            // 加载音量设置
+            LoadVolumeSettings();
+            
+            // 初始化当前场景音频
+            LoadSceneAudioConfig(SceneManager.GetActiveScene().name);
+        }
+        
+        private void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+        
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            LoadSceneAudioConfig(scene.name);
         }
 
+        #region 场景音频管理功能
+        
+        public void LoadSceneAudioConfig(string sceneName)
+        {
+            // 停止当前场景的所有非持久化音频
+            StopNonPersistentAudio();
+            
+            // 加载新场景的音频配置
+            string configPath = $"AudioConfigs/{sceneName}";
+            currentSceneConfig = Resources.Load<SceneAudioConfig>(configPath);
+            
+            if (currentSceneConfig != null)
+            {
+                InitializeSceneAudio();
+                Debug.Log($"Loaded audio config for scene: {sceneName}");
+            }
+            else
+            {
+                currentSceneConfig = defaultSceneConfig;
+                if (currentSceneConfig != null)
+                {
+                    InitializeSceneAudio();
+                    Debug.Log($"Using default audio config for scene: {sceneName}");
+                }
+                else
+                {
+                    Debug.LogWarning($"No audio config found for scene: {sceneName}");
+                }
+            }
+        }
+        
+        private void StopNonPersistentAudio()
+        {
+            // 停止所有非BGM音频
+            StopCategoryAudio(AudioCategory.UI, true);
+            StopCategoryAudio(AudioCategory.Environment, true);
+            StopCategoryAudio(AudioCategory.Character, true);
+            StopCategoryAudio(AudioCategory.SpecialEffect, true);
+            StopCategoryAudio(AudioCategory.Ambient, true);
+        }
+        
+        private void InitializeSceneAudio()
+        {
+            // 播放默认BGM
+            if (currentSceneConfig.defaultBGM != null)
+            {
+                PlayBgm(currentSceneConfig.defaultBGM.audioName, "", 2f, 1f);
+            }
+            
+            // 设置音频混合
+            if (currentSceneConfig.defaultSnapshot != null)
+            {
+                currentSceneConfig.defaultSnapshot.TransitionTo(1f);
+            }
+            
+            // 设置场景特定的音量
+            ChangeBgmVolume(currentSceneConfig.bgmVolume);
+            ChangeSfxVolume(currentSceneConfig.sfxVolume);
+        }
+        
+        public void PlaySceneSFX(string sfxName)
+        {
+            if (currentSceneConfig != null)
+            {
+                var sfxData = currentSceneConfig.sceneSFX.Find(x => x.audioName == sfxName);
+                if (sfxData != null)
+                {
+                    PlaySfx(sfxName);
+                }
+                else
+                {
+                    Debug.LogWarning($"SFX {sfxName} not found in current scene config");
+                }
+            }
+        }
+        
+        public SceneAudioConfig GetCurrentSceneConfig()
+        {
+            return currentSceneConfig;
+        }
+        
+        public void SwitchToSceneConfig(SceneAudioConfig newConfig)
+        {
+            if (newConfig != null)
+            {
+                currentSceneConfig = newConfig;
+                InitializeSceneAudio();
+            }
+        }
 
-        /// <summary>
-        /// 播放BGM
-        /// </summary>
+        #endregion
+
+        #region 核心音频功能 - BGM控制
+        
         public void PlayBgm(string fadeInMusicName, string fadeOutMusicName = "", float fadeInDuration = 0.5f,
             float fadeOutDuration = 0.5f, bool loop = true)
         {
             Sequence s = DOTween.Sequence();
 
-            // 如果需要淡出某个BGM
-            if (fadeOutMusicName != "")
+            // 淡出指定的BGM
+            if (!string.IsNullOrEmpty(fadeOutMusicName))
             {
-                AudioInfo fadeOutInfo = bgmAudioInfoList.Find(x => x.audioName == fadeOutMusicName);
-
-                if (fadeOutInfo == null)
+                var fadeOutInfo = GetAudioInfo(fadeOutMusicName, AudioCategory.BackgroundMusic);
+                if (fadeOutInfo != null)
                 {
-                    Debug.LogWarning("未找到BGM：" + fadeOutMusicName);
-                    return;
+                    s.Append(fadeOutInfo.audioSource.DOFade(0, fadeOutDuration).OnComplete(() =>
+                    {
+                        fadeOutInfo.audioSource.Pause();
+                    }));
                 }
-
-                s.Append(fadeOutInfo.audioSource.DOFade(0, fadeOutDuration).OnComplete(() =>
-                {
-                    fadeOutInfo.audioSource.Pause();
-                }));
             }
 
             // 检查是否已存在需要播放的BGM
-            AudioInfo audioInfo = bgmAudioInfoList.Find(x => x.audioName == fadeInMusicName);
-
-            if (audioInfo != null)
+            var existingInfo = GetAudioInfo(fadeInMusicName, AudioCategory.BackgroundMusic);
+            if (existingInfo != null)
             {
-                s.Append(audioInfo.audioSource.DOFade(mainVolume * bgmVolumeFactor, fadeInDuration).OnComplete(() =>
-                {
-                    audioInfo.audioSource.Play();
-                }));
+                existingInfo.audioSource.volume = 0;
+                existingInfo.audioSource.Play();
+                s.Append(existingInfo.audioSource.DOFade(mainVolume * bgmVolumeFactor, fadeInDuration));
                 return;
             }
 
             // 从资源加载并播放新的BGM
             AudioData fadeInData = audioDatas.audioDataList.Find(x => x.audioName == fadeInMusicName);
-
             if (fadeInData == null)
             {
                 Debug.LogWarning("未找到BGM：" + fadeInMusicName);
@@ -116,16 +221,14 @@ namespace GuiFramework
             }
 
             GameObject fadeInAudioGO = new GameObject(fadeInMusicName);
-            fadeInAudioGO.transform.SetParent(_bgmSourcesRootGO.transform);
+            fadeInAudioGO.transform.SetParent(_bgmSourcesRootGO);
 
             AudioSource fadeInAudioSource = fadeInAudioGO.AddComponent<AudioSource>();
             fadeInAudioSource.clip = Resources.Load<AudioClip>(fadeInData.audioPath);
             fadeInAudioSource.loop = loop;
             fadeInAudioSource.volume = fadeInDuration > 0 ? 0 : mainVolume * bgmVolumeFactor;
 
-            fadeInAudioSource.outputAudioMixerGroup =
-                audioMixer.FindMatchingGroups("Master")[1]; // 设置为音频混合器的 "Master" 组，确保应用音量控制
-
+            fadeInAudioSource.outputAudioMixerGroup = audioMixer.FindMatchingGroups("Master")[1];
             fadeInAudioSource.Play();
 
             if (fadeInDuration > 0)
@@ -133,189 +236,231 @@ namespace GuiFramework
                 s.Append(fadeInAudioSource.DOFade(mainVolume * bgmVolumeFactor, fadeInDuration));
             }
 
-            AudioInfo info = new AudioInfo
-            {
-                audioName = fadeInMusicName,
-                audioSource = fadeInAudioSource
-            };
-
-            bgmAudioInfoList.Add(info);
-            StartCoroutine(DetectingAudioPlayState(info, true));
+            // 添加到分类系统
+            AudioInfo info = new AudioInfo(fadeInMusicName, fadeInAudioSource, AudioCategory.BackgroundMusic);
+            categorizedAudio[AudioCategory.BackgroundMusic].Add(info);
+            StartCoroutine(DetectingAudioPlayState(info));
         }
 
-        /// <summary>
-        /// 暂停BGM
-        /// </summary>
-        /// <param name="pauseBgmName">要暂停的片段名称</param>
-        /// <param name="fadeOutDuration">淡出间隔</param>
         public void PauseBgm(string pauseBgmName, float fadeOutDuration = 0.5f)
         {
-            AudioInfo audioInfo = bgmAudioInfoList.Find(x => x.audioName == pauseBgmName);
-
-            if (audioInfo == null)
+            var audioInfo = GetAudioInfo(pauseBgmName, AudioCategory.BackgroundMusic);
+            if (audioInfo != null)
+            {
+                Sequence s = DOTween.Sequence();
+                s.Append(audioInfo.audioSource.DOFade(0, fadeOutDuration).OnComplete(() =>
+                {
+                    audioInfo.audioSource.Pause();
+                }));
+            }
+            else
             {
                 Debug.LogWarning("未找到BGM：" + pauseBgmName);
-                return;
             }
-
-            Sequence s = DOTween.Sequence();
-
-            s.Append(audioInfo.audioSource.DOFade(0, fadeOutDuration).OnComplete(() =>
-            {
-                audioInfo.audioSource.Pause();
-            }));
         }
 
-
-        /// <summary>
-        /// 停止BGM
-        /// </summary>
-        /// <param name="stopBgmName">要停止的片段名称</param>
-        /// <param name="fadeOutDuration">淡出间隔</param>
         public void StopBgm(string stopBgmName, float fadeOutDuration = 0.5f)
         {
-            AudioInfo audioInfo = bgmAudioInfoList.Find(x => x.audioName == stopBgmName);
-
-            if (audioInfo == null)
+            var audioInfo = GetAudioInfo(stopBgmName, AudioCategory.BackgroundMusic);
+            if (audioInfo != null)
+            {
+                Sequence s = DOTween.Sequence();
+                s.Append(audioInfo.audioSource.DOFade(0, fadeOutDuration).OnComplete(() =>
+                {
+                    audioInfo.audioSource.Stop();
+                    Destroy(audioInfo.audioSource.gameObject);
+                    categorizedAudio[AudioCategory.BackgroundMusic].Remove(audioInfo);
+                }));
+            }
+            else
             {
                 Debug.LogWarning("未找到BGM：" + stopBgmName);
-                return;
             }
-
-            Sequence s = DOTween.Sequence();
-
-            s.Append(audioInfo.audioSource.DOFade(0, fadeOutDuration).OnComplete(() =>
-            {
-                audioInfo.audioSource.Stop();
-
-                Destroy(audioInfo.audioSource.gameObject);
-            }));
-
-            bgmAudioInfoList.Remove(audioInfo);
         }
 
-        /// <summary>
-        /// 停止播放所有BGM
-        /// </summary>
-        /// <param name="fadeOutDuration">淡出间隔</param>
         public void StopAllBGM(float fadeOutDuration = 0.5f)
         {
-            foreach (var bgmInfo in bgmAudioInfoList.ToArray())
+            var bgmList = categorizedAudio[AudioCategory.BackgroundMusic].ToArray();
+            foreach (var audioInfo in bgmList)
             {
-                StopBgm(bgmInfo.audioName, fadeOutDuration);
+                StopBgm(audioInfo.audioName, fadeOutDuration);
             }
-
-            StopAllCoroutines();
         }
 
-        /// <summary>
-        /// 播放音效
-        /// </summary>
-        /// <param name="sfxName">要播放的音效片段名称</param>
-        /// <param name="loop">是否循环</param>
+        #endregion
+
+        #region 核心音频功能 - SFX控制
+        
         public void PlaySfx(string sfxName, bool loop = false)
         {
-            Sequence s = DOTween.Sequence();
-
-            // 从音频列表中寻找
             AudioData sfxData = audioDatas.audioDataList.Find(x => x.audioName == sfxName);
-
             if (sfxData == null)
             {
                 Debug.LogWarning("未找到sfx：" + sfxName);
                 return;
             }
 
-            // 创建音频播放器
-            GameObject sfxAudioGO = new GameObject(sfxName);
-            sfxAudioGO.transform.SetParent(_sfxSourcesRootGO.transform);
+            AudioSource sfxAudioSource = GetPooledAudioSource();
+            if (sfxAudioSource == null) return;
 
-            AudioSource sfxAudioSource = sfxAudioGO.AddComponent<AudioSource>();
+            sfxAudioSource.transform.SetParent(_sfxSourcesRootGO);
+            sfxAudioSource.name = sfxName;
             sfxAudioSource.clip = Resources.Load<AudioClip>(sfxData.audioPath);
             sfxAudioSource.loop = loop;
-
-            sfxAudioSource.outputAudioMixerGroup =
-                audioMixer.FindMatchingGroups("Master")[2]; // 设置为音频混合器的 "Master" 组，确保应用音量控制
-
+            sfxAudioSource.volume = mainVolume * sfxVolumeFactor;
+            sfxAudioSource.outputAudioMixerGroup = audioMixer.FindMatchingGroups("Master")[2];
             sfxAudioSource.Play();
 
-            AudioInfo info = new AudioInfo();
-            info.audioName = sfxName;
-            info.audioSource = sfxAudioSource;
-            sfxAudioInfoList.Add(info);
-
-            StartCoroutine(DetectingAudioPlayState(info, false));
+            // 根据音效名称判断分类（简单实现，可根据需要扩展）
+            AudioCategory category = GetSFXCategory(sfxName);
+            AudioInfo info = new AudioInfo(sfxName, sfxAudioSource, category);
+            categorizedAudio[category].Add(info);
+            
+            StartCoroutine(DetectingAudioPlayState(info));
         }
 
-        /// <summary>
-        /// 暂停音效
-        /// </summary>
-        /// <param name="pauseSfxName">要暂停的音效名称</param>
         public void PauseSfx(string pauseSfxName)
         {
-            AudioInfo audioInfo = sfxAudioInfoList.Find(x => x.audioName == pauseSfxName);
-
-            if (audioInfo == null)
+            var audioInfo = FindAudioInfo(pauseSfxName);
+            if (audioInfo != null)
+            {
+                audioInfo.audioSource.Pause();
+            }
+            else
             {
                 Debug.LogWarning("未找到sfx：" + pauseSfxName);
-                return;
             }
-
-            audioInfo.audioSource.Pause();
         }
 
-        /// <summary>
-        /// 停止音效
-        /// </summary>
-        /// <param name="stopSfxName">要停止的音效名称</param>
         public void StopSfx(string stopSfxName)
         {
-            AudioInfo audioInfo = bgmAudioInfoList.Find(x => x.audioName == stopSfxName);
-
-            if (audioInfo == null)
+            var audioInfo = FindAudioInfo(stopSfxName);
+            if (audioInfo != null && audioInfo.category != AudioCategory.BackgroundMusic)
+            {
+                audioInfo.audioSource.Stop();
+                ReturnAudioSourceToPool(audioInfo.audioSource);
+                categorizedAudio[audioInfo.category].Remove(audioInfo);
+            }
+            else
             {
                 Debug.LogWarning("未找到sfx：" + stopSfxName);
+            }
+        }
+
+        #endregion
+
+        #region 分类音频控制
+        
+        public void PlayCategorizedAudio(string audioName, AudioCategory category, Vector3 position = default)
+        {
+            AudioData audioData = audioDatas.audioDataList.Find(x => x.audioName == audioName);
+            if (audioData == null)
+            {
+                Debug.LogWarning("未找到音频：" + audioName);
                 return;
             }
 
-            audioInfo.audioSource.Stop();
+            // BGM和SFX使用不同的创建方式
+            if (category == AudioCategory.BackgroundMusic)
+            {
+                PlayBgm(audioName);
+                return;
+            }
 
-            bgmAudioInfoList.Remove(audioInfo);
+            AudioSource audioSource = GetPooledAudioSource();
+            if (audioSource == null) return;
 
-            Destroy(audioInfo.audioSource.gameObject);
+            audioSource.transform.position = position;
+            audioSource.transform.SetParent(_sfxSourcesRootGO);
+            audioSource.name = audioName;
+
+            audioSource.clip = Resources.Load<AudioClip>(audioData.audioPath);
+            audioSource.volume = mainVolume * GetCategoryVolumeFactor(category);
+            audioSource.loop = category == AudioCategory.Ambient; // 只有环境音循环
+            audioSource.outputAudioMixerGroup = GetMixerGroupForCategory(category);
+            audioSource.Play();
+
+            AudioInfo audioInfo = new AudioInfo(audioName, audioSource, category);
+            categorizedAudio[category].Add(audioInfo);
+            
+            StartCoroutine(DetectingAudioPlayState(audioInfo));
+        }
+        
+        public void StopCategoryAudio(AudioCategory category, bool fadeOut = false)
+        {
+            if (categorizedAudio.ContainsKey(category))
+            {
+                foreach (var audioInfo in categorizedAudio[category].ToArray())
+                {
+                    if (fadeOut && category == AudioCategory.BackgroundMusic)
+                    {
+                        StartCoroutine(FadeOutAndStop(audioInfo, 0.5f));
+                    }
+                    else
+                    {
+                        StopAudioImmediate(audioInfo);
+                    }
+                }
+            }
+        }
+        
+        public void PauseCategoryAudio(AudioCategory category)
+        {
+            if (categorizedAudio.ContainsKey(category))
+            {
+                foreach (var audioInfo in categorizedAudio[category])
+                {
+                    if (audioInfo.audioSource != null && audioInfo.audioSource.isPlaying)
+                    {
+                        audioInfo.audioSource.Pause();
+                    }
+                }
+            }
+        }
+        
+        public void ResumeCategoryAudio(AudioCategory category)
+        {
+            if (categorizedAudio.ContainsKey(category))
+            {
+                foreach (var audioInfo in categorizedAudio[category])
+                {
+                    if (audioInfo.audioSource != null && !audioInfo.audioSource.isPlaying)
+                    {
+                        audioInfo.audioSource.Play();
+                    }
+                }
+            }
         }
 
-        /// <summary>
-        /// 修改全局音量，并保存到PlayerPrefs
-        /// </summary>
-        /// <param name="volume">新的全局音量</param>
+        #endregion
+
+        #region 音量控制（保持不变）
+        
         public void ChangeMainVolume(float volume)
         {
             mainVolume = volume;
             PlayerPrefs.SetFloat("MainVolume", mainVolume);
 
-            foreach (var info in bgmAudioInfoList)
+            // 更新所有音频源音量
+            foreach (var categoryList in categorizedAudio.Values)
             {
-                info.audioSource.volume = mainVolume * bgmVolumeFactor;
+                foreach (var audioInfo in categoryList)
+                {
+                    if (audioInfo.audioSource != null)
+                    {
+                        audioInfo.audioSource.volume = mainVolume * GetCategoryVolumeFactor(audioInfo.category);
+                    }
+                }
             }
 
-            foreach (var info in sfxAudioInfoList)
-            {
-                info.audioSource.volume = mainVolume * sfxVolumeFactor;
-            }
-
-            Debug.Log($"MainVolume changed to {mainVolume}");
+            ChangeBgmVolume(bgmVolumeFactor);
+            ChangeSfxVolume(sfxVolumeFactor);
         }
 
-        /// <summary>
-        /// 修改BGM音量并使用AudioMixer控制音量
-        /// </summary>
         public void ChangeBgmVolume(float factor)
         {
             bgmVolumeFactor = factor;
-
             bgmVolumeFactor = Mathf.Clamp(bgmVolumeFactor, 0f, 1f);
-
             PlayerPrefs.SetFloat("BgmVolumeFactor", bgmVolumeFactor);
 
             if (bgmVolumeFactor == 0)
@@ -328,18 +473,12 @@ namespace GuiFramework
             }
         }
 
-        /// <summary>
-        /// 修改音效音量并使用AudioMixer控制音量
-        /// </summary>
         public void ChangeSfxVolume(float factor)
         {
             sfxVolumeFactor = factor;
-
             sfxVolumeFactor = Mathf.Clamp(sfxVolumeFactor, 0f, 1f);
-
             PlayerPrefs.SetFloat("SfxVolumeFactor", sfxVolumeFactor);
 
-            // 如果因子为0，则设置为非常小的音量接近静音
             if (sfxVolumeFactor == 0)
             {
                 audioMixer.SetFloat(SFX_VOLUME_PARAM, -80f);
@@ -350,28 +489,198 @@ namespace GuiFramework
             }
         }
 
+        #endregion
 
-        /// <summary>
-        /// 检测音频播放状态并清理结束播放的音频资源
-        /// </summary>
-        IEnumerator DetectingAudioPlayState(AudioInfo info, bool isBgm)
+        #region 内部辅助方法
+        
+        private void LoadVolumeSettings()
+        {
+            mainVolume = PlayerPrefs.GetFloat("MainVolume", 1f);
+            bgmVolumeFactor = PlayerPrefs.GetFloat("BgmVolumeFactor", 0.8f);
+            sfxVolumeFactor = PlayerPrefs.GetFloat("SfxVolumeFactor", 0.8f);
+            
+            ChangeBgmVolume(bgmVolumeFactor);
+            ChangeSfxVolume(sfxVolumeFactor);
+        }
+        
+        private void CreatePooledAudioSource()
+        {
+            GameObject audioGO = new GameObject("PooledAudioSource");
+            audioGO.transform.SetParent(audioPoolRoot);
+            
+            AudioSource audioSource = audioGO.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.Stop();
+            
+            audioSourcePool.Enqueue(audioSource);
+        }
+        
+        private AudioSource GetPooledAudioSource()
+        {
+            if (audioSourcePool.Count > 0)
+            {
+                return audioSourcePool.Dequeue();
+            }
+            
+            if (enableAudioPooling)
+            {
+                CreatePooledAudioSource();
+                return audioSourcePool.Dequeue();
+            }
+            
+            return null;
+        }
+        
+        private void ReturnAudioSourceToPool(AudioSource audioSource)
+        {
+            if (audioSource != null)
+            {
+                audioSource.Stop();
+                audioSource.clip = null;
+                audioSource.outputAudioMixerGroup = null;
+                audioSourcePool.Enqueue(audioSource);
+            }
+        }
+        
+        private float GetCategoryVolumeFactor(AudioCategory category)
+        {
+            return category == AudioCategory.BackgroundMusic ? bgmVolumeFactor : sfxVolumeFactor;
+        }
+        
+        private AudioMixerGroup GetMixerGroupForCategory(AudioCategory category)
+        {
+            var groups = audioMixer.FindMatchingGroups("Master");
+            return category == AudioCategory.BackgroundMusic ? 
+                (groups.Length > 1 ? groups[1] : null) : 
+                (groups.Length > 2 ? groups[2] : null);
+        }
+        
+        private AudioInfo GetAudioInfo(string audioName, AudioCategory category)
+        {
+            return categorizedAudio[category].Find(x => x.audioName == audioName);
+        }
+        
+        private AudioInfo FindAudioInfo(string audioName)
+        {
+            foreach (var categoryList in categorizedAudio.Values)
+            {
+                var audioInfo = categoryList.Find(x => x.audioName == audioName);
+                if (audioInfo != null) return audioInfo;
+            }
+            return null;
+        }
+        
+        private AudioCategory GetSFXCategory(string sfxName)
+        {
+            // 简单的分类逻辑，可根据需要扩展
+            if (sfxName.Contains("UI") || sfxName.Contains("Button")) return AudioCategory.UI;
+            if (sfxName.Contains("Env") || sfxName.Contains("Nature")) return AudioCategory.Environment;
+            if (sfxName.Contains("Char") || sfxName.Contains("Player")) return AudioCategory.Character;
+            if (sfxName.Contains("Effect") || sfxName.Contains("Magic")) return AudioCategory.SpecialEffect;
+            return AudioCategory.UI; // 默认
+        }
+
+        #endregion
+
+        #region 协程方法
+        
+        private IEnumerator DetectingAudioPlayState(AudioInfo info)
         {
             AudioSource audioSource = info.audioSource;
-            while (audioSource.isPlaying)
+            while (audioSource != null && audioSource.isPlaying)
             {
                 yield return null;
             }
 
-            if (isBgm)
+            if (audioSource != null)
             {
-                bgmAudioInfoList.Remove(info);
+                categorizedAudio[info.category].Remove(info);
+                
+                if (info.category == AudioCategory.BackgroundMusic)
+                {
+                    Destroy(audioSource.gameObject);
+                }
+                else
+                {
+                    ReturnAudioSourceToPool(audioSource);
+                }
             }
-            else
-            {
-                sfxAudioInfoList.Remove(info);
-            }
-
-            Destroy(info.audioSource.gameObject);
         }
+        
+        private IEnumerator FadeOutAndStop(AudioInfo audioInfo, float duration)
+        {
+            AudioSource audioSource = audioInfo.audioSource;
+            if (audioSource == null) yield break;
+            
+            float startVolume = audioSource.volume;
+            float timer = 0f;
+            
+            while (timer < duration && audioSource != null)
+            {
+                timer += Time.deltaTime;
+                audioSource.volume = Mathf.Lerp(startVolume, 0f, timer / duration);
+                yield return null;
+            }
+            
+            if (audioSource != null)
+            {
+                StopAudioImmediate(audioInfo);
+            }
+        }
+        
+        private void StopAudioImmediate(AudioInfo audioInfo)
+        {
+            if (audioInfo.audioSource != null)
+            {
+                audioInfo.audioSource.Stop();
+                categorizedAudio[audioInfo.category].Remove(audioInfo);
+                
+                if (audioInfo.category == AudioCategory.BackgroundMusic)
+                {
+                    Destroy(audioInfo.audioSource.gameObject);
+                }
+                else
+                {
+                    ReturnAudioSourceToPool(audioInfo.audioSource);
+                }
+            }
+        }
+
+        #endregion
+
+        #region 工具方法
+        
+        public List<string> GetActiveBgmList()
+        {
+            return categorizedAudio[AudioCategory.BackgroundMusic]
+                .Select(x => x.audioName).ToList();
+        }
+        
+        public List<string> GetActiveSfxList()
+        {
+            var sfxList = new List<string>();
+            foreach (var category in categorizedAudio.Keys)
+            {
+                if (category != AudioCategory.BackgroundMusic)
+                {
+                    sfxList.AddRange(categorizedAudio[category].Select(x => x.audioName));
+                }
+            }
+            return sfxList;
+        }
+        
+        public void ForceCleanup()
+        {
+            StopAllBGM(0.1f);
+            foreach (var category in categorizedAudio.Keys.ToList())
+            {
+                if (category != AudioCategory.BackgroundMusic)
+                {
+                    StopCategoryAudio(category);
+                }
+            }
+        }
+
+        #endregion
     }
 }
