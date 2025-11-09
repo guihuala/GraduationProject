@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: UIDataListSO
   m_EditorClassIdentifier: 
   uiDataList:
-  - uiName: PausePanel
-    uiPath: Panel/PausePanel
+  - uiName: ConfirmPanel
+    uiPath: Panel/ConfirmPanel
+  - uiName: DialogPanel
+    uiPath: Panel/DialogPanel
   - uiName: SettingPanel
     uiPath: Panel/SettingPanel

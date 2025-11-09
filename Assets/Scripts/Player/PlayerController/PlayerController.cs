@@ -15,6 +15,10 @@ public partial class PlayerController : Singleton<PlayerController>, IStateMachi
     
     public PlayerAnimator PlayerAnimator;
     private StateMachine stateMachine;
+
+    [Header("Rotation")]
+    [Tooltip("旋转速度，越大越快")] [SerializeField]
+    private float rotationSpeed = 10f;
     
     protected override void Awake()
     {
@@ -26,6 +30,12 @@ public partial class PlayerController : Singleton<PlayerController>, IStateMachi
     private void Start()
     {
         Init();
+    }
+
+    private void Update()
+    {
+        // 每帧调用旋转，使角色面向鼠标指针（如果有命中点）
+        Rotate();
     }
 
     public void Init()

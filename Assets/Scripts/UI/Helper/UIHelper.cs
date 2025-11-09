@@ -113,10 +113,7 @@ namespace SimpleUITips
     }
 
     #endregion
-
-    /// <summary>
-    /// 独立的 UI 助手（单例），无第三方依赖。将本脚本挂到一个 Canvas 下。
-    /// </summary>
+    
     public class UIHelper : Singleton<UIHelper>
     {
         [Header("Bubble")]

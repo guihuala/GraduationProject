@@ -35,6 +35,20 @@ namespace Dialog
 
             int sessionId = _nextSessionId++;
             int startNode = dialogData.startNodeId;
+            // If configured start node doesn't exist, fallback to first node in dialogData
+            if (dialogData.GetNodeById(startNode) == null)
+            {
+                if (dialogData.dialogNodes != null && dialogData.dialogNodes.Count > 0)
+                {
+                    Debug.LogWarning($"StartDialog: startNodeId {startNode} not found in DialogData (id={dialogData.dialogId}); falling back to first node id {dialogData.dialogNodes[0].id}.");
+                    startNode = dialogData.dialogNodes[0].id;
+                }
+                else
+                {
+                    Debug.LogError($"StartDialog: DialogData (id={dialogData.dialogId}) contains no nodes.");
+                    return -1;
+                }
+            }
 
             var session = new DialogSession(sessionId, dialogData, startNode, target, onComplete);
             _sessions[sessionId] = session;
@@ -93,6 +107,8 @@ namespace Dialog
                     return;
                 }
 
+                Debug.Log($"DialogManager: obtained DialogPanel for session {sessionId} (panel={panel.gameObject.name})");
+
                 _activePanels[sessionId] = panel;
 
                 // record panel info
@@ -123,6 +139,7 @@ namespace Dialog
                 }
             }
 
+            Debug.Log($"DialogManager: Showing node {node.id} (speaker='{node.speakerName}') on session {sessionId}");
             panel.ShowDialog(node.speakerName, node.dialogText);
             panel.ClearChoices();
 
